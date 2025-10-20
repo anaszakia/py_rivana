@@ -1,0 +1,19 @@
+{
+    "total_input_mm": 314.0653603009957,
+    "total_output_mm": 676.8407592773438,
+    "total_residual_mm": -362.7752878732902,
+    "residual_pct": -115.50948742822567,
+    "mean_daily_error_pct": -528247613.5751872,
+    "max_daily_error_pct": 1055253410.3393555,
+    "tolerance_pct": 5.0,
+    "components": {
+        "et_mm": 600.664794921875,
+        "et_pct": 191.25471027629618,
+        "runoff_mm": 76.22234344482422,
+        "runoff_pct": 24.269579864450456,
+        "storage_change_mm": -0.04646456241607666,
+        "storage_change_pct": -0.014794551800155768
+    },
+    "pass_validation": false,
+    "validation_note": "Using journal standard tolerance (5%) for physics-informed models"
+}
