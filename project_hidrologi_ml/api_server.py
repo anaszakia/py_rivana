@@ -1726,6 +1726,8 @@ def run_hidrologi_process(job_id, params, result_dir):
             
             try:
                 RESULTS[job_id]["progress"] = 30
+                RESULTS[job_id]["status"] = "processing"
+                RESULTS[job_id]["message"] = "Initializing ML engine..."
                 
                 print(f"{'='*80}")
                 print(f"Starting WEAP-ML Analysis")
@@ -1736,16 +1738,64 @@ def run_hidrologi_process(job_id, params, result_dir):
                 
                 # Import main_weap_ml hanya saat dibutuhkan untuk menghindari dependency error saat server start
                 print("Loading main_weap_ml module...")
-                import main_weap_ml
-                print("Module loaded successfully!\n")
+                sys.stdout.flush()
                 
-                main_weap_ml.main(
-                    lon=longitude,
-                    lat=latitude,
-                    start=start,
-                    end=end,
-                    output_dir=result_dir
-                )
+                try:
+                    import main_weap_ml
+                    print("✓ Module loaded successfully!\n")
+                    sys.stdout.flush()
+                except Exception as import_error:
+                    print(f"✗ ERROR loading main_weap_ml: {str(import_error)}")
+                    sys.stdout.flush()
+                    raise
+                
+                # Update progress before GEE fetching (most common stuck point)
+                RESULTS[job_id]["progress"] = 35
+                RESULTS[job_id]["message"] = "Fetching satellite data from Google Earth Engine..."
+                print("\n" + "="*80)
+                print("⚠️  CRITICAL SECTION: Google Earth Engine Data Fetching")
+                print("   This may take 2-5 minutes depending on date range")
+                print("   Progress will update after data is fetched")
+                print("="*80 + "\n")
+                sys.stdout.flush()
+                
+                # Run main function with timeout monitoring
+                import signal
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Process exceeded maximum execution time (30 minutes)")
+                
+                # Set timeout untuk 30 menit (1800 detik)
+                if hasattr(signal, 'SIGALRM'):
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(1800)  # 30 minutes timeout
+                
+                try:
+                    print("Starting main_weap_ml.main()...")
+                    sys.stdout.flush()
+                    
+                    main_weap_ml.main(
+                        lon=longitude,
+                        lat=latitude,
+                        start=start,
+                        end=end,
+                        output_dir=result_dir
+                    )
+                    
+                    if hasattr(signal, 'SIGALRM'):
+                        signal.alarm(0)  # Cancel alarm
+                    
+                except TimeoutError as te:
+                    print(f"\n✗ TIMEOUT ERROR: {str(te)}")
+                    sys.stdout.flush()
+                    raise
+                except Exception as main_error:
+                    print(f"\n✗ ERROR in main_weap_ml.main(): {str(main_error)}")
+                    print(f"Error type: {type(main_error).__name__}")
+                    print("Traceback:")
+                    traceback.print_exc()
+                    sys.stdout.flush()
+                    raise
                 
                 print(f"\n{'='*80}")
                 print(f"main_weap_ml.main() completed successfully")
@@ -1914,9 +1964,81 @@ def run_hidrologi_process(job_id, params, result_dir):
                     print(f"   CSV: {len(csv_files)}/{len(expected_files['csv'])}")
                     print(f"   JSON: {len(json_files)}/{len(expected_files['json'])}")
                     
-            except Exception as e:
+            except TimeoutError as te:
                 print(f"\n{'='*80}")
-                print(f"❌ ERROR saat menjalankan proses: {str(e)}")
+                print(f"⏱️  TIMEOUT ERROR: Process exceeded maximum time limit")
+                print(f"{'='*80}\n")
+                print(f"Error: {str(te)}")
+                print(f"\nThis usually means:")
+                print(f"  1. Google Earth Engine is taking too long to respond")
+                print(f"  2. Date range is too large (try smaller range)")
+                print(f"  3. Network connectivity issues")
+                print(f"  4. Server resource constraints")
+                
+                sys.stdout.flush()
+                sys.stderr.flush()
+                
+                RESULTS[job_id]["status"] = "failed"
+                RESULTS[job_id]["error"] = f"Timeout: {str(te)}"
+                RESULTS[job_id]["error_type"] = "timeout"
+                RESULTS[job_id]["progress"] = 100
+                RESULTS[job_id]["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Save error details
+                error_log_path = os.path.join(result_dir, "error.log")
+                with open(error_log_path, 'w', encoding='utf-8') as error_file:
+                    error_file.write(f"TIMEOUT ERROR\n")
+                    error_file.write(f"{'='*80}\n")
+                    error_file.write(f"Error: {str(te)}\n\n")
+                    error_file.write(f"Timestamp: {datetime.now()}\n")
+                    error_file.write(f"Parameters: {json.dumps(params, indent=2)}\n")
+                    traceback.print_exc(file=error_file)
+                
+                print(f"Error details saved to: {error_log_path}")
+                traceback.print_exc()
+                sys.stdout.flush()
+                sys.stderr.flush()
+                
+            except Exception as e:
+                error_msg = str(e)
+                error_type = type(e).__name__
+                
+                print(f"\n{'='*80}")
+                print(f"❌ ERROR saat menjalankan proses")
+                print(f"{'='*80}\n")
+                print(f"Error Type: {error_type}")
+                print(f"Error Message: {error_msg}")
+                
+                # Detect common error patterns
+                if "ee.data.authenticateViaPrivateKey" in error_msg or "credentials" in error_msg.lower():
+                    print(f"\n🔐 AUTHENTICATION ERROR DETECTED")
+                    print(f"This is likely a Google Earth Engine authentication issue:")
+                    print(f"  1. Check if gee-credentials.json exists and is valid")
+                    print(f"  2. Verify service account email in .env.production")
+                    print(f"  3. Ensure GEE project ID is correct")
+                    print(f"  4. Check if service account has Earth Engine API enabled")
+                elif "429" in error_msg or "quota" in error_msg.lower():
+                    print(f"\n⚠️  QUOTA ERROR DETECTED")
+                    print(f"Google Earth Engine quota exceeded:")
+                    print(f"  1. Wait a few minutes before trying again")
+                    print(f"  2. Reduce date range")
+                    print(f"  3. Check GEE project quotas")
+                elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                    print(f"\n⏱️  TIMEOUT ERROR DETECTED")
+                    print(f"Request to Google Earth Engine timed out:")
+                    print(f"  1. Try reducing date range")
+                    print(f"  2. Check internet connectivity")
+                    print(f"  3. Try again later")
+                elif "memory" in error_msg.lower() or "memoryerror" in error_type.lower():
+                    print(f"\n💾 MEMORY ERROR DETECTED")
+                    print(f"Insufficient memory to complete operation:")
+                    print(f"  1. Reduce date range")
+                    print(f"  2. Check server memory availability")
+                    print(f"  3. Restart the API service")
+                else:
+                    print(f"\n❓ UNKNOWN ERROR")
+                    print(f"Please check the full error log for details")
+                
                 print(f"{'='*80}\n")
                 
                 # Flush output sebelum error handling
@@ -1924,14 +2046,23 @@ def run_hidrologi_process(job_id, params, result_dir):
                 sys.stderr.flush()
                 
                 RESULTS[job_id]["status"] = "failed"
-                RESULTS[job_id]["error"] = str(e)
+                RESULTS[job_id]["error"] = error_msg
+                RESULTS[job_id]["error_type"] = error_type
                 RESULTS[job_id]["progress"] = 100
+                RESULTS[job_id]["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
                 # Simpan traceback ke file untuk debugging
-                import traceback
                 error_log_path = os.path.join(result_dir, "error.log")
                 with open(error_log_path, 'w', encoding='utf-8') as error_file:
+                    error_file.write(f"ERROR: {error_type}\n")
+                    error_file.write(f"{'='*80}\n")
+                    error_file.write(f"Message: {error_msg}\n\n")
+                    error_file.write(f"Timestamp: {datetime.now()}\n")
+                    error_file.write(f"Parameters: {json.dumps(params, indent=2)}\n\n")
+                    error_file.write(f"Full Traceback:\n")
+                    error_file.write(f"{'='*80}\n")
                     traceback.print_exc(file=error_file)
+                
                 print(f"Error details saved to: {error_log_path}")
                 traceback.print_exc()  # Print ke log juga
                 
