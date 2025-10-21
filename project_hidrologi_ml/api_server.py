@@ -2203,12 +2203,18 @@ def run_server(port=8000, host='127.0.0.1'):
             httpd.server_close()
             print("✅ Server berhasil dihentikan")
     except OSError as e:
-        if e.winerror == 10048:  # Port already in use
+        # Check for "Address already in use" error (works on both Windows and Linux)
+        if e.errno == 98 or (hasattr(e, 'winerror') and e.winerror == 10048):  # Port already in use
             print(f"\n❌ ERROR: Port {port} sudah digunakan!")
             print(f"\n💡 SOLUSI:")
             print(f"   1. Hentikan proses yang menggunakan port {port}")
-            print(f"      Cek dengan: netstat -ano | findstr :{port}")
-            print(f"      Kill process: taskkill /PID <PID> /F")
+            if os.name == 'nt':  # Windows
+                print(f"      Cek dengan: netstat -ano | findstr :{port}")
+                print(f"      Kill process: taskkill /PID <PID> /F")
+            else:  # Linux/Unix
+                print(f"      Cek dengan: sudo lsof -i :{port}")
+                print(f"      Kill process: sudo kill -9 <PID>")
+                print(f"      Atau: sudo pkill -f api_server.py")
             print(f"\n   2. Atau gunakan port lain:")
             print(f"      python api_server.py 8001")
             print(f"\n   3. Atau tunggu beberapa detik dan coba lagi")
