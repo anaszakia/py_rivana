@@ -466,11 +466,32 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     print_section("MENGAMBIL DATA SATELIT", "🛰️")
 
     try:
-        ee.Initialize(project='fabled-era-474402-g2')
-        print("✅ Terhubung ke Google Earth Engine")
-    except:
-        ee.Authenticate()
-        ee.Initialize(project='fabled-era-474402-g2')
+        # Try to initialize with service account first (for production/VPS)
+        service_account_key = os.path.join(os.path.dirname(__file__), 'gee-credentials.json')
+        
+        if os.path.exists(service_account_key):
+            print(f"🔐 Using service account authentication: {service_account_key}")
+            credentials = ee.ServiceAccountCredentials(
+                email=None,  # Will be read from JSON file
+                key_file=service_account_key
+            )
+            ee.Initialize(credentials=credentials, project='fabled-era-474402-g2')
+            print("✅ Terhubung ke Google Earth Engine (Service Account)")
+        else:
+            # Fallback to default authentication (for local development)
+            print("🔐 Using default authentication (no service account key found)")
+            ee.Initialize(project='fabled-era-474402-g2')
+            print("✅ Terhubung ke Google Earth Engine")
+    except Exception as init_error:
+        print(f"❌ Error initializing GEE: {str(init_error)}")
+        print("Trying to authenticate...")
+        try:
+            ee.Authenticate()
+            ee.Initialize(project='fabled-era-474402-g2')
+            print("✅ Terhubung ke Google Earth Engine (after authentication)")
+        except Exception as auth_error:
+            print(f"❌ Authentication failed: {str(auth_error)}")
+            raise Exception(f"Cannot initialize Google Earth Engine. Error: {str(auth_error)}")
 
     lokasi = ee.Geometry.Point([lon, lat])
     buffer = lokasi.buffer(5000)

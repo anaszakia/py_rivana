@@ -29,6 +29,11 @@ wheels/
 .env.production
 *.env
 
+# Google Earth Engine Credentials (SECURITY - DO NOT COMMIT!)
+gee-credentials.json
+*-credentials.json
+service-account-*.json
+
 # Results & Data
 results/
 temp/
