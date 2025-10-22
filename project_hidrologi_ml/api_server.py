@@ -1757,17 +1757,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                 print("="*80 + "\n")
                 sys.stdout.flush()
                 
-                # Run main function with timeout monitoring
-                import signal
-                
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("Process exceeded maximum execution time (30 minutes)")
-                
-                # Set timeout untuk 30 menit (1800 detik)
-                if hasattr(signal, 'SIGALRM'):
-                    signal.signal(signal.SIGALRM, timeout_handler)
-                    signal.alarm(1800)  # 30 minutes timeout
-                
+                # Run main function - signal timeout removed (doesn't work in threads)
+                # Process will be monitored through progress updates instead
                 try:
                     print("Starting main_weap_ml.main()...")
                     sys.stdout.flush()
@@ -1780,13 +1771,6 @@ def run_hidrologi_process(job_id, params, result_dir):
                         output_dir=result_dir
                     )
                     
-                    if hasattr(signal, 'SIGALRM'):
-                        signal.alarm(0)  # Cancel alarm
-                    
-                except TimeoutError as te:
-                    print(f"\n✗ TIMEOUT ERROR: {str(te)}")
-                    sys.stdout.flush()
-                    raise
                 except Exception as main_error:
                     print(f"\n✗ ERROR in main_weap_ml.main(): {str(main_error)}")
                     print(f"Error type: {type(main_error).__name__}")
