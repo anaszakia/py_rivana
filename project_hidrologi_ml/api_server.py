@@ -955,13 +955,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             summary["error"] = f"Missing column in data: {str(e)}"
             summary["error_detail"] = f"Kolom '{str(e)}' tidak ditemukan di CSV. Data mungkin belum lengkap ter-generate."
             print(f"❌ KeyError in generate_summary_text: {e}")
-            import traceback
             traceback.print_exc()
         except Exception as e:
             summary["error"] = f"Error generating summary: {str(e)}"
             summary["error_detail"] = "Terjadi kesalahan saat membuat ringkasan hasil"
             print(f"❌ Exception in generate_summary_text: {e}")
-            import traceback
             traceback.print_exc()
         
         return summary
@@ -2105,7 +2103,6 @@ def run_hidrologi_process(job_id, params, result_dir):
         
         # Simpan traceback untuk outer exception
         try:
-            import traceback
             error_log_path = os.path.join(result_dir, "error_outer.log")
             with open(error_log_path, 'w', encoding='utf-8') as error_file:
                 traceback.print_exc(file=error_file)
