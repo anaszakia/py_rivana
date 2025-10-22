@@ -32,6 +32,7 @@ class Config:
         
         # Security
         self.SECRET_KEY = os.getenv('SECRET_KEY', 'default_secret_key_CHANGE_IN_PRODUCTION')
+        self.API_TOKEN = os.getenv('API_TOKEN', 'rivana_ml_2024_secure_token_change_this')  # Bearer Token for API authentication
         
         # Limits
         self.MAX_CONCURRENT_JOBS = int(os.getenv('MAX_CONCURRENT_JOBS', '2'))
@@ -124,6 +125,7 @@ class Config:
         print(f"Environment:     {self.environment}")
         print(f"Debug Mode:      {self.DEBUG}")
         print(f"API Host:        {self.API_HOST}:{self.API_PORT}")
+        print(f"API Token:       {'*' * 20}...{self.API_TOKEN[-4:] if len(self.API_TOKEN) > 4 else '****'}")  # Hide token
         print(f"Results Dir:     {self.RESULTS_DIR}")
         print(f"Temp Dir:        {self.TEMP_DIR}")
         print(f"Log Level:       {self.LOG_LEVEL}")

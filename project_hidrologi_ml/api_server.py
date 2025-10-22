@@ -202,6 +202,29 @@ def load_existing_jobs():
     print(f"✅ Loaded {job_count} existing jobs from disk\n")
 
 class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
+    def _check_auth(self):
+        """Check Bearer Token authentication"""
+        # Get Authorization header
+        auth_header = self.headers.get('Authorization', '')
+        
+        # Check if token matches
+        if CONFIG_LOADED:
+            expected_token = f"Bearer {config.API_TOKEN}"
+        else:
+            expected_token = "Bearer rivana_ml_2024_secure_token_change_this"
+        
+        if auth_header != expected_token:
+            return False
+        return True
+    
+    def _send_auth_error(self):
+        """Send 401 Unauthorized response"""
+        self._set_response(401)
+        self.wfile.write(json.dumps({
+            "error": "Unauthorized",
+            "message": "Valid Bearer Token required. Use: Authorization: Bearer YOUR_TOKEN"
+        }).encode('utf-8'))
+    
     def _set_response(self, status_code=200, content_type='application/json'):
         self.send_response(status_code)
         self.send_header('Content-type', content_type)
@@ -1143,6 +1166,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         return recommendations
 
     def do_GET(self):
+        # ⚠️ AUTHENTICATION CHECK - All GET endpoints require Bearer Token
+        if not self._check_auth():
+            self._send_auth_error()
+            return
+        
         # Parse URL dan query parameters
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
@@ -1614,6 +1642,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Endpoint tidak ditemukan"}).encode('utf-8'))
 
     def do_POST(self):
+        # ⚠️ AUTHENTICATION CHECK - All POST endpoints require Bearer Token
+        if not self._check_auth():
+            self._send_auth_error()
+            return
+        
         # Hanya menerima request ke endpoint /generate
         if self.path == '/generate':
             content_length = int(self.headers['Content-Length'])
@@ -2115,7 +2148,11 @@ def run_server(port=8000, host='127.0.0.1'):
     print("="*80)
     print(f"🔍 Mencoba start server di port {port}...")
     print(f"Server akan berjalan di: http://localhost:{port}")
-    print("\n📋 ENDPOINT TERSEDIA:")
+    print("\n� AUTHENTICATION:")
+    print(f"  Bearer Token: {'Enabled' if CONFIG_LOADED else 'Enabled (using default)'}")
+    print(f"  Token: {'*' * 20}...{config.API_TOKEN[-4:] if CONFIG_LOADED and len(config.API_TOKEN) > 4 else 'change_this'}")
+    print(f"  ⚠️  All requests MUST include: Authorization: Bearer YOUR_TOKEN")
+    print("\n�📋 ENDPOINT TERSEDIA:")
     print(f"  POST   /generate                    - Mulai proses perhitungan baru")
     print(f"  GET    /status/<job_id>             - Cek status job")
     print(f"  GET    /jobs                        - Lihat semua job")
