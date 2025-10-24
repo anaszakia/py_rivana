@@ -76,7 +76,7 @@ def safe_json_dump(data, filename):
 # ==========================================
 class WEAPConfig:
     # Kapasitas Sistem (mm)
-    kapasitas_waduk = 100.0
+    kapasitas_kolam_retensi = 100.0
     kapasitas_tanah = 400.0
     kapasitas_akuifer = 700.0
 
@@ -120,8 +120,8 @@ class WEAPConfig:
     # Threshold Kondisi
     kekeringan_threshold = 5.0  # mm/bulan
     banjir_threshold = 150.0    # mm/bulan
-    waduk_minimum = 30.0        # % kapasitas
-    waduk_optimal = 70.0        # % kapasitas
+    kolam_retensi_minimum = 30.0        # % kapasitas
+    kolam_retensi_optimal = 70.0        # % kapasitas
 
 config = WEAPConfig()
 
@@ -144,7 +144,7 @@ class MLLabelGenerator:
             Dense(48, activation='relu'),
             Dropout(0.2),
             Dense(32, activation='relu'),
-            Dense(7)  # [limpasan, infiltrasi, perkolasi, baseflow, waduk, tanah, akuifer]
+            Dense(7)  # [limpasan, infiltrasi, perkolasi, baseflow, KOLAM RETENSI, tanah, akuifer]
         ])
         
         # ✅ GUNAKAN PHYSICS-INFORMED LOSS
@@ -184,7 +184,7 @@ class MLLabelGenerator:
         df['baseflow'] = baseflow
 
         # Storage dynamics
-        df['waduk'] = (df['limpasan'].cumsum() * 0.12).clip(0, config.kapasitas_waduk)
+        df['kolam_retensi'] = (df['limpasan'].cumsum() * 0.12).clip(0, config.kapasitas_kolam_retensi)
         df['tanah'] = (df['infiltrasi'].cumsum() * 0.6 - df['et'].cumsum() * 0.4).clip(0, config.kapasitas_tanah)
         df['akuifer'] = (df['perkolasi'].cumsum() * 0.5 - df['baseflow'].cumsum()).clip(0, config.kapasitas_akuifer)
 
@@ -198,7 +198,7 @@ class MLLabelGenerator:
         df = self.generate_physics_based_labels(df)
 
         features = ['hujan', 'et', 'suhu', 'ndvi', 'kelembaban_tanah']
-        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'waduk', 'tanah', 'akuifer']
+        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'kolam_retensi', 'tanah', 'akuifer']
 
         X = self.scaler_X.fit_transform(df[features].values)
         y = self.scaler_y.fit_transform(df[targets].values)
@@ -221,7 +221,7 @@ class MLLabelGenerator:
         y_pred = self.model.predict(X, verbose=0)
         y_denorm = self.scaler_y.inverse_transform(y_pred)
 
-        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'waduk', 'tanah', 'akuifer']
+        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'kolam_retensi', 'tanah', 'akuifer']
         for i, target in enumerate(targets):
             df[target] = np.clip(y_denorm[:, i], 0, None)
 
@@ -1204,7 +1204,7 @@ class MLHydroSimulator:
             Bidirectional(LSTM(32)),
             Dropout(0.2),
             Dense(32, activation='relu'),
-            Dense(7)  # [limpasan, infiltrasi, perkolasi, baseflow, waduk, tanah, akuifer]
+            Dense(7)  # [limpasan, infiltrasi, perkolasi, baseflow, KOLAM RETENSI, tanah, akuifer]
         ])
         
         # ✅ GUNAKAN PHYSICS-INFORMED LOSS (sesuai jurnal hal. 16-17)
@@ -1227,7 +1227,7 @@ class MLHydroSimulator:
         self.label_generator = label_gen  # Simpan untuk future use
 
         features = ['hujan', 'et', 'suhu', 'ndvi', 'kelembaban_tanah']
-        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'waduk', 'tanah', 'akuifer']
+        targets = ['limpasan', 'infiltrasi', 'perkolasi', 'baseflow', 'kolam_retensi', 'tanah', 'akuifer']
 
         X = self.scaler_X.fit_transform(df[features].values)
         y = self.scaler_y.fit_transform(df[targets].values)
@@ -1324,7 +1324,7 @@ class MLHydroSimulator:
         print("CROSS-VALIDATION PADA KOMPONEN KRITIS".center(80))
         print(f"{'='*80}")
         
-        critical_components = ['limpasan', 'waduk']
+        critical_components = ['limpasan', 'kolam_retensi']
         for target in critical_components:
             if target in targets:
                 idx = targets.index(target)
@@ -1374,7 +1374,7 @@ class MLHydroSimulator:
                 'infiltrasi': max(0, y_denorm[1]),
                 'perkolasi': max(0, y_denorm[2]),
                 'baseflow': max(0, y_denorm[3]),
-                'waduk': np.clip(y_denorm[4], 0, config.kapasitas_waduk),
+                'kolam_retensi': np.clip(y_denorm[4], 0, config.kapasitas_kolam_retensi),
                 'tanah': np.clip(y_denorm[5], 0, config.kapasitas_tanah),
                 'akuifer': np.clip(y_denorm[6], 0, config.kapasitas_akuifer)
             })
@@ -1412,8 +1412,8 @@ class MLSupplyDemand:
     def train(self, df_hasil):
         print_section("MELATIH PENYEIMBANG KETERSEDIAAN & KEBUTUHAN AIR", "⚖️")
 
-        df_hasil['supply'] = df_hasil['waduk'] * 0.12 + df_hasil['akuifer'] * 0.06
-        features = ['supply', 'waduk', 'akuifer', 'hujan', 'et']
+        df_hasil['supply'] = df_hasil['kolam_retensi'] * 0.12 + df_hasil['akuifer'] * 0.06
+        features = ['supply', 'kolam_retensi', 'akuifer', 'hujan', 'et']
 
         sectors = list(config.kebutuhan.keys())
         allocations = []
@@ -1443,7 +1443,7 @@ class MLSupplyDemand:
         return df_hasil
 
     def optimize(self, df_hasil):
-        features = ['supply', 'waduk', 'akuifer', 'hujan', 'et']
+        features = ['supply', 'kolam_retensi', 'akuifer', 'hujan', 'et']
         X = self.scaler.transform(df_hasil[features].values)
         predictions = self.model.predict(X, verbose=0)
 
@@ -1525,7 +1525,7 @@ class MLFloodDroughtPredictor:
 # ML MODEL 4: RESERVOIR RECOMMENDATION
 # ==========================================
 class MLReservoirAdvisor:
-    """ML untuk rekomendasi operasi waduk"""
+    """ML untuk rekomendasi operasi KOLAM RETENSI"""
 
     def __init__(self):
         self.scaler = MinMaxScaler()
@@ -1542,18 +1542,18 @@ class MLReservoirAdvisor:
         return model
 
     def train(self, df_hasil):
-        print_section("MELATIH PENASIHAT PENGELOLAAN WADUK", "🎯")
+        print_section("MELATIH PENASIHAT PENGELOLAAN KOLAM RETENSI", "🎯")
 
-        features = ['waduk', 'hujan', 'keandalan', 'total_demand']
+        features = ['kolam_retensi', 'hujan', 'keandalan', 'total_demand']
 
         # Generate optimal actions
         actions = []
         for _, row in df_hasil.iterrows():
-            waduk_pct = (row['waduk'] / config.kapasitas_waduk) * 100
+            kolam_retensi_pct = (row['kolam_retensi'] / config.kapasitas_kolam_retensi) * 100
 
-            if waduk_pct < config.waduk_minimum:
+            if kolam_retensi_pct < config.kolam_retensi_minimum:
                 action = [0, 0, 1]  # store
-            elif waduk_pct > config.waduk_optimal:
+            elif kolam_retensi_pct > config.kolam_retensi_optimal:
                 action = [1, 0, 0]  # release
             else:
                 action = [0, 1, 0]  # maintain
@@ -1572,7 +1572,7 @@ class MLReservoirAdvisor:
         return df_hasil
 
     def recommend(self, df_hasil):
-        features = ['waduk', 'hujan', 'keandalan', 'total_demand']
+        features = ['kolam_retensi', 'hujan', 'keandalan', 'total_demand']
         X = self.scaler.transform(df_hasil[features].values)
         predictions = self.model.predict(X, verbose=0)
 
@@ -1607,8 +1607,8 @@ class MLForecaster:
     def train(self, df_hasil):
         print_section("TRAINING FORECASTER", "🔮")
 
-        features = ['hujan', 'et', 'waduk', 'akuifer', 'keandalan']
-        targets = ['hujan', 'et', 'waduk', 'akuifer', 'keandalan', 'total_supply']
+        features = ['hujan', 'et', 'kolam_retensi', 'akuifer', 'keandalan']
+        targets = ['hujan', 'et', 'kolam_retensi', 'akuifer', 'keandalan', 'total_supply']
 
         X = self.scaler_X.fit_transform(df_hasil[features].values)
         y = self.scaler_y.fit_transform(df_hasil[targets].values)
@@ -1638,8 +1638,8 @@ class MLForecaster:
         return df_hasil
 
     def forecast(self, df_hasil):
-        features = ['hujan', 'et', 'waduk', 'akuifer', 'keandalan']
-        targets = ['hujan', 'et', 'waduk', 'akuifer', 'keandalan', 'total_supply']
+        features = ['hujan', 'et', 'kolam_retensi', 'akuifer', 'keandalan']
+        targets = ['hujan', 'et', 'kolam_retensi', 'akuifer', 'keandalan', 'total_supply']
 
         # Jika model tidak terlatih atau data tidak cukup, gunakan metode sederhana
         if not hasattr(self, 'use_simple'):
@@ -1660,7 +1660,7 @@ class MLForecaster:
                 pred = {
                     'hujan': recent_data['hujan'].mean() * (1 + np.random.randn() * 0.1),
                     'et': recent_data['et'].mean() * (1 + np.random.randn() * 0.05),
-                    'waduk': recent_data['waduk'].mean() * 0.95,  # Slight decay
+                    'kolam_retensi': recent_data['kolam_retensi'].mean() * 0.95,  # Slight decay
                     'akuifer': recent_data['akuifer'].mean() * 0.98,
                     'keandalan': recent_data['keandalan'].mean() * 0.97,
                     'total_supply': recent_data['total_supply'].mean() * 0.96
@@ -1688,7 +1688,7 @@ class MLForecaster:
         # Clip values
         df_pred['hujan'] = df_pred['hujan'].clip(0)
         df_pred['et'] = df_pred['et'].clip(0)
-        df_pred['waduk'] = df_pred['waduk'].clip(0, config.kapasitas_waduk)
+        df_pred['kolam_retensi'] = df_pred['kolam_retensi'].clip(0, config.kapasitas_kolam_retensi)
         df_pred['akuifer'] = df_pred['akuifer'].clip(0, config.kapasitas_akuifer)
         df_pred['keandalan'] = df_pred['keandalan'].clip(0, 1)
 
@@ -1732,7 +1732,7 @@ class MLWaterRights:
         print_section("TRAINING WATER RIGHTS MANAGER", "⚖️")
 
         sectors = list(self.water_rights.keys())
-        features = ['supply', 'waduk', 'keandalan', 'total_demand']
+        features = ['supply', 'kolam_retensi', 'keandalan', 'total_demand']
 
         # Generate training data
         allocations = []
@@ -1782,7 +1782,7 @@ class MLWaterRights:
 
     def allocate(self, df_hasil):
         """Alokasi air berdasarkan hak air dan prioritas dinamis"""
-        features = ['supply', 'waduk', 'keandalan', 'total_demand']
+        features = ['supply', 'kolam_retensi', 'keandalan', 'total_demand']
         X = self.scaler.transform(df_hasil[features].values)
         predictions = self.model.predict(X, verbose=0)
 
@@ -1831,7 +1831,7 @@ class MLSupplyNetwork:
     def train(self, df_hasil):
         print_section("TRAINING SUPPLY NETWORK OPTIMIZER", "🌊")
 
-        features = ['total_demand', 'hujan', 'waduk', 'akuifer']
+        features = ['total_demand', 'hujan', 'kolam_retensi', 'akuifer']
 
         # Generate optimal routing patterns
         routes = []
@@ -1842,7 +1842,7 @@ class MLSupplyNetwork:
             # Routing logic based on conditions
             if rain > 5:  # High rain: prefer river
                 route = [0.6, 0.3, 0.1]
-            elif row['waduk'] < 30:  # Low reservoir: use groundwater
+            elif row['kolam_retensi'] < 30:  # Low reservoir: use groundwater
                 route = [0.2, 0.2, 0.6]
             else:  # Normal: balanced
                 route = [0.4, 0.35, 0.25]
@@ -1862,7 +1862,7 @@ class MLSupplyNetwork:
 
     def optimize_network(self, df_hasil):
         """Optimasi routing jaringan"""
-        features = ['total_demand', 'hujan', 'waduk', 'akuifer']
+        features = ['total_demand', 'hujan', 'kolam_retensi', 'akuifer']
         X = self.scaler.transform(df_hasil[features].values)
         predictions = self.model.predict(X, verbose=0)
 
@@ -1927,7 +1927,7 @@ class MLCostBenefit:
     def train(self, df_hasil):
         print_section("TRAINING COST-BENEFIT ANALYZER", "💰")
 
-        features = ['total_supply', 'waduk', 'total_demand', 'keandalan', 'hujan']
+        features = ['total_supply', 'kolam_retensi', 'total_demand', 'keandalan', 'hujan']
         sectors = list(self.base_benefits.keys())
 
         # Generate training data dengan variasi
@@ -1937,11 +1937,11 @@ class MLCostBenefit:
         for _, row in df_hasil.iterrows():
             supply = row['total_supply']
             reliability = row['keandalan']
-            waduk_level = row['waduk'] / config.kapasitas_waduk
+            RETENSI_level = row['kolam_retensi'] / config.kapasitas_RETENSI
 
             # Dynamic costs (meningkat saat supply rendah atau reliability rendah)
             stress_factor = 1 + (1 - reliability) * 0.5
-            depth_factor = 1 + (1 - waduk_level) * 0.3
+            depth_factor = 1 + (1 - RETENSI_level) * 0.3
 
             costs = [
                 self.base_costs['treatment'] * supply * stress_factor,
@@ -1977,7 +1977,7 @@ class MLCostBenefit:
 
     def analyze(self, df_hasil):
         """Analisis ekonomi dan energi dengan ML"""
-        features = ['total_supply', 'waduk', 'total_demand', 'keandalan', 'hujan']
+        features = ['total_supply', 'kolam_retensi', 'total_demand', 'keandalan', 'hujan']
         X = self.scaler.transform(df_hasil[features].values)
 
         # Predict costs dan benefits
@@ -1991,7 +1991,7 @@ class MLCostBenefit:
 
         # Energy calculation (physics-based tapi adjusted by ML)
         base_energy = df_hasil['total_supply'] * 0.05
-        depth_factor = (100 - df_hasil['waduk']) / 100
+        depth_factor = (100 - df_hasil['kolam_retensi']) / 100
         df_hasil['energy_kwh'] = base_energy * (1 + depth_factor) * cost_predictions[:, 2] / self.base_costs['pumping_energy']
 
         # Efficiency ratio
@@ -2042,7 +2042,7 @@ class MLWaterQuality:
         available_cols = df_hasil.columns.tolist()
 
         # Tentukan features berdasarkan kolom yang ada
-        base_features = ['hujan', 'limpasan', 'waduk', 'keandalan']
+        base_features = ['hujan', 'limpasan', 'kolam_retensi', 'keandalan']
         optional_features = []
 
         if 'et' in available_cols:
@@ -2056,7 +2056,7 @@ class MLWaterQuality:
 
         # Generate realistic parameters (ML-based, bukan random)
         # pH: dipengaruhi oleh limpasan (asam hujan) dan stagnasi
-        flow_rate = df_hasil['limpasan'] / (df_hasil['waduk'] + 1)
+        flow_rate = df_hasil['limpasan'] / (df_hasil['kolam_retensi'] + 1)
         df_hasil['pH'] = 7.0 + (flow_rate - flow_rate.mean()) / (flow_rate.std() + 1e-6) * 0.3
         df_hasil['pH'] = df_hasil['pH'].clip(6.0, 8.5)
 
@@ -2078,7 +2078,7 @@ class MLWaterQuality:
         erosion = df_hasil['limpasan'] * 15  # erosi membawa sedimen
 
         if 'et' in available_cols:
-            concentration = (df_hasil['et'] / (df_hasil['waduk'] + 1)) * 50  # evaporasi konsentrasi TDS
+            concentration = (df_hasil['et'] / (df_hasil['kolam_retensi'] + 1)) * 50  # evaporasi konsentrasi TDS
         else:
             concentration = 0
 
@@ -2146,7 +2146,7 @@ class MLWaterQuality:
     def predict_quality(self, df_hasil):
         """Prediksi kualitas air"""
         if not hasattr(self, 'features'):
-            self.features = ['hujan', 'limpasan', 'waduk', 'keandalan']
+            self.features = ['hujan', 'limpasan', 'kolam_retensi', 'keandalan']
 
         features = self.features
 
@@ -2332,7 +2332,7 @@ class MLAquaticEcology:
         )
 
         # Train Flow Regime Model
-        flow_features = ['limpasan', 'hujan', 'waduk', 'et']
+        flow_features = ['limpasan', 'hujan', 'kolam_retensi', 'et']
         flow_targets = ['flow_alteration_index', 'ecological_stress']
 
         X_flow = self.scaler_flow.fit_transform(df_hasil[flow_features].values)  # ✅ FIXED
@@ -2405,7 +2405,7 @@ class WaterBalanceAnalyzer:
         self.tolerance = 0.05  # ✅ 5% error tolerance (sesuai jurnal)
         self.components = [
             'hujan', 'et', 'limpasan', 'infiltrasi',
-            'perkolasi', 'baseflow', 'waduk', 'tanah', 'akuifer'
+            'perkolasi', 'baseflow', 'kolam_retensi', 'tanah', 'akuifer'
         ]
 
     def calculate_daily_balance(self, df):
@@ -2424,7 +2424,7 @@ class WaterBalanceAnalyzer:
         df['wb_infiltration'] = df['infiltrasi'].copy()
 
         # Storage changes (daily)
-        df['wb_delta_reservoir'] = df['waduk'].diff().fillna(0)
+        df['wb_delta_reservoir'] = df['kolam_retensi'].diff().fillna(0)
         df['wb_delta_soil'] = df['tanah'].diff().fillna(0)
         df['wb_delta_aquifer'] = df['akuifer'].diff().fillna(0)
         df['wb_delta_storage'] = (df['wb_delta_reservoir'] +
@@ -2481,10 +2481,10 @@ class WaterBalanceAnalyzer:
         total_storage_change = df['wb_delta_storage'].sum()
 
         # Net storage change (first to last)
-        initial_storage = (df['waduk'].iloc[0] +
+        initial_storage = (df['kolam_retensi'].iloc[0] +
                           df['tanah'].iloc[0] +
                           df['akuifer'].iloc[0])
-        final_storage = (df['waduk'].iloc[-1] +
+        final_storage = (df['kolam_retensi'].iloc[-1] +
                         df['tanah'].iloc[-1] +
                         df['akuifer'].iloc[-1])
         net_storage_change = final_storage - initial_storage
@@ -2582,8 +2582,8 @@ class WaterBalanceAnalyzer:
 
         # 3. Storage Efficiency
         df['storage_efficiency'] = (
-            (df['waduk'] + df['tanah'] + df['akuifer']) /
-            (config.kapasitas_waduk + config.kapasitas_tanah + config.kapasitas_akuifer)
+            (df['kolam_retensi'] + df['tanah'] + df['akuifer']) /
+            (config.kapasitas_kolam_retensi + config.kapasitas_tanah + config.kapasitas_akuifer)
         )
 
         # 4. Water Balance Index (WBI)
@@ -2607,7 +2607,7 @@ def physics_informed_loss(y_true, y_pred, water_balance_penalty=100.0):
     Sesuai jurnal hal. 16-17
     
     Args:
-        y_true: Target values [limpasan, infiltrasi, perkolasi, baseflow, waduk, tanah, akuifer]
+        y_true: Target values [limpasan, infiltrasi, perkolasi, baseflow, KOLAM RETENSI, tanah, akuifer]
         y_pred: Predicted values
         water_balance_penalty: Weight untuk mass balance constraint (default: 100.0)
     
@@ -2619,7 +2619,7 @@ def physics_informed_loss(y_true, y_pred, water_balance_penalty=100.0):
     # Standard MSE
     mse = tf.reduce_mean(tf.square(y_true - y_pred))
     
-    # Extract components (order: limpasan, infiltrasi, perkolasi, baseflow, waduk, tanah, akuifer)
+    # Extract components (order: limpasan, infiltrasi, perkolasi, baseflow, KOLAM RETENSI, tanah, akuifer)
     limpasan = y_pred[:, 0]
     infiltrasi = y_pred[:, 1]
     perkolasi = y_pred[:, 2]
@@ -2872,7 +2872,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         return False
 
     # ========== PERBAIKAN 2: CEK KOLOM YANG DIPERLUKAN ==========
-    required_cols = ['date', 'waduk', 'hujan', 'keandalan', 'total_demand']
+    required_cols = ['date', 'kolam_retensi', 'hujan', 'keandalan', 'total_demand']
     missing_cols = [col for col in required_cols if col not in df_hasil.columns]
     
     if missing_cols:
@@ -2903,25 +2903,25 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         fig.suptitle('SISTEM MANAJEMEN AIR TERPADU\nPerencanaan dan Evaluasi Sumber Air',
                      fontsize=16, fontweight='bold', y=0.98)
 
-        # 1. STATUS WADUK
+        # 1. STATUS KOLAM RETENSI
         ax1 = fig.add_subplot(gs[0, :2])
-        ax1.plot(df_hasil['date'], df_hasil['waduk'], 'b-', linewidth=2.5, label='Volume Aktual')
-        ax1.plot(df_prediksi['date'], df_prediksi['waduk'], 'r--', linewidth=2, label='Prediksi ML')
-        ax1.axhline(config.kapasitas_waduk * 0.7, color='g', linestyle=':', alpha=0.7, label='Level Optimal (70%)')
-        ax1.axhline(config.kapasitas_waduk * 0.3, color='orange', linestyle=':', alpha=0.7, label='Level Minimum (30%)')
-        ax1.fill_between(df_hasil['date'], 0, df_hasil['waduk'], alpha=0.2, color='blue')
-        ax1.set_title('📦 STATUS VOLUME WADUK', fontsize=13, fontweight='bold', pad=10)
+        ax1.plot(df_hasil['date'], df_hasil['kolam_retensi'], 'b-', linewidth=2.5, label='Volume Aktual')
+        ax1.plot(df_prediksi['date'], df_prediksi['kolam_retensi'], 'r--', linewidth=2, label='Prediksi ML')
+        ax1.axhline(config.kapasitas_kolam_retensi * 0.7, color='g', linestyle=':', alpha=0.7, label='Level Optimal (70%)')
+        ax1.axhline(config.kapasitas_kolam_retensi * 0.3, color='orange', linestyle=':', alpha=0.7, label='Level Minimum (30%)')
+        ax1.fill_between(df_hasil['date'], 0, df_hasil['kolam_retensi'], alpha=0.2, color='blue')
+        ax1.set_title('📦 STATUS VOLUME KOLAM RETENSI', fontsize=13, fontweight='bold', pad=10)
         ax1.set_ylabel('Volume (mm)', fontsize=11)
         ax1.legend(loc='upper right', fontsize=9)
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylim(0, config.kapasitas_waduk * 1.1)
+        ax1.set_ylim(0, config.kapasitas_kolam_retensi * 1.1)
 
         # 2. INDIKATOR UTAMA (Gauge)
         ax2 = fig.add_subplot(gs[0, 2])
         ax2.axis('off')
 
         keandalan = df_hasil['keandalan'].mean() * 100
-        waduk_pct = (df_hasil['waduk'].iloc[-1] / config.kapasitas_waduk) * 100
+        kolam_retensi_pct = (df_hasil['kolam_retensi'].iloc[-1] / config.kapasitas_kolam_retensi) * 100
         defisit = df_hasil['defisit_total'].mean()
 
         metrics_text = f"""
@@ -2933,9 +2933,9 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
 ║  {keandalan:>6.1f}%                ║
 ║  Status: {'BAIK' if keandalan > 90 else 'CUKUP' if keandalan > 75 else 'KURANG'}            ║
 ║                           ║
-║  Volume Waduk Saat Ini    ║
-║  {waduk_pct:>6.1f}%                ║
-║  Status: {'OPTIMAL' if waduk_pct > 70 else 'CUKUP' if waduk_pct > 30 else 'RENDAH'}          ║
+║  Volume KOLAM RETENSI Saat Ini    ║
+║  {kolam_retensi_pct:>6.1f}%                ║
+║  Status: {'OPTIMAL' if kolam_retensi_pct > 70 else 'CUKUP' if kolam_retensi_pct > 30 else 'RENDAH'}          ║
 ║                           ║
 ║  Defisit Rata-rata        ║
 ║  {defisit:>6.2f} mm/hari         ║
@@ -3000,7 +3000,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
             ax6.legend(fontsize=9)
             ax6.grid(True, alpha=0.3)
 
-        # 7. REKOMENDASI OPERASI WADUK
+        # 7. REKOMENDASI OPERASI KOLAM RETENSI
         ax7 = fig.add_subplot(gs[3, :])
         if 'rekomendasi' in df_hasil.columns:
             rec_map = {'LEPAS AIR': 1, 'PERTAHANKAN': 0, 'SIMPAN AIR': -1}
@@ -3009,7 +3009,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
             colors_rec = ['red' if r == 1 else 'gray' if r == 0 else 'green' for r in rec_values]
             ax7.bar(df_hasil['date'], rec_values, color=colors_rec, alpha=0.7, width=1)
             ax7.axhline(0, color='black', linewidth=1)
-            ax7.set_title('🎯 REKOMENDASI OPERASI WADUK (ML)', fontsize=13, fontweight='bold', pad=10)
+            ax7.set_title('🎯 REKOMENDASI OPERASI KOLAM RETENSI (ML)', fontsize=13, fontweight='bold', pad=10)
             ax7.set_ylabel('Aksi', fontsize=10)
             ax7.set_yticks([-1, 0, 1])
             ax7.set_yticklabels(['SIMPAN', 'PERTAHANKAN', 'LEPAS'])
@@ -3051,14 +3051,14 @@ def create_simple_report(df_hasil, df_prediksi):
     # Metrics
     keandalan = df_hasil['keandalan'].mean() * 100
     keandalan_pred = df_prediksi['keandalan'].mean() * 100
-    waduk_now = df_hasil['waduk'].iloc[-1]
-    waduk_pct = (waduk_now / config.kapasitas_waduk) * 100
+    kolam_retensi_now = df_hasil['kolam_retensi'].iloc[-1]
+    kolam_retensi_pct = (kolam_retensi_now / config.kapasitas_kolam_retensi) * 100
     hujan_avg = df_hasil['hujan'].mean()
     hujan_pred = df_prediksi['hujan'].mean()
 
     # Status icons
     status_icon = '✅' if keandalan > 90 else '⚠️' if keandalan > 75 else '🔴'
-    waduk_icon = '✅' if waduk_pct > 50 else '⚠️' if waduk_pct > 30 else '🔴'
+    kolam_retensi_icon = '✅' if kolam_retensi_pct > 50 else '⚠️' if kolam_retensi_pct > 30 else '🔴'
     trend_icon = '📈' if keandalan_pred > keandalan else '📉'
 
     print("\n╔════════════════════════════════════════════════════════════════╗")
@@ -3069,9 +3069,9 @@ def create_simple_report(df_hasil, df_prediksi):
     print(f"║     Saat ini: {keandalan:5.1f}% | Perkiraan: {keandalan_pred:5.1f}% {trend_icon}            ║")
     print(f"║     Artinya: Sistem {'SANGAT BAIK' if keandalan > 90 else 'CUKUP BAIK' if keandalan > 75 else 'PERLU PERHATIAN':<30}                ║")
     print(f"║                                                                ║")
-    print(f"║  {waduk_icon} KONDISI TAMPUNGAN AIR                                     ║")
-    print(f"║     Volume: {waduk_now:5.1f} mm ({waduk_pct:5.1f}% dari kapasitas)              ║")
-    print(f"║     Status: {'IDEAL' if waduk_pct > 70 else 'CUKUP' if waduk_pct > 30 else 'RENDAH - WASPADA':<30}                ║")
+    print(f"║  {kolam_retensi_icon} KONDISI TAMPUNGAN AIR                                     ║")
+    print(f"║     Volume: {kolam_retensi_now:5.1f} mm ({kolam_retensi_pct:5.1f}% dari kapasitas)              ║")
+    print(f"║     Status: {'IDEAL' if kolam_retensi_pct > 70 else 'CUKUP' if kolam_retensi_pct > 30 else 'RENDAH - WASPADA':<30}                ║")
     print(f"║                                                                ║")
     print(f"║  🌧️ CURAH HUJAN                                                 ║")
     print(f"║     Rata-rata historis: {hujan_avg:5.2f} mm/hari                        ║")
@@ -3148,12 +3148,12 @@ def create_simple_report(df_hasil, df_prediksi):
 
     print("║                                                                ║")
 
-    if waduk_pct < 30:
+    if kolam_retensi_pct < 30:
         print("║  💧 SARAN UNTUK TAMPUNGAN AIR:                                 ║")
         print("║     • SIMPAN AIR - Kurangi penggunaan air                     ║")
         print("║     • Cari tambahan sumber air                                ║")
         print("║     • Siapkan langkah penanganan kekeringan                   ║")
-    elif waduk_pct > 80:
+    elif kolam_retensi_pct > 80:
         print("║  💧 SARAN UNTUK TAMPUNGAN AIR:                                 ║")
         print("║     • KELUARKAN AIR - Hindari luapan                          ║")
         print("║     • Manfaatkan air untuk irigasi pertanian                  ║")
@@ -3595,8 +3595,8 @@ def create_comprehensive_report(df_hasil, df_prediksi, morphology_data=None, mon
     print(f"\n🔹 Periode Analisis: {len(df_hasil)} hari")
     print(f"🔹 Keandalan Sistem: {df_hasil['keandalan'].mean()*100:.1f}%")
     print(f"🔹 Prediksi Keandalan: {df_prediksi['keandalan'].mean()*100:.1f}%")
-    print(f"🔹 Volume Waduk Saat Ini: {df_hasil['waduk'].iloc[-1]:.1f} mm")
-    print(f"🔹 Prediksi Volume 30 Hari: {df_prediksi['waduk'].iloc[-1]:.1f} mm")
+    print(f"🔹 Volume KOLAM RETENSI Saat Ini: {df_hasil['kolam_retensi'].iloc[-1]:.1f} mm")
+    print(f"🔹 Prediksi Volume 30 Hari: {df_prediksi['kolam_retensi'].iloc[-1]:.1f} mm")
 
     # ========== TAMBAHAN: WATER BALANCE SUMMARY ==========
     print(f"\n🔹 WATER BALANCE METRICS:")
@@ -4239,7 +4239,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
         recommendations.append("⚠️ IKAN: Tingkatkan kualitas air dan atur pola aliran air")
 
     if 'compliance_pct' in locals() and compliance_pct < 80:
-        recommendations.append("🔴 ALIRAN AIR: Tambah pelepasan air dari waduk untuk lingkungan")
+        recommendations.append("🔴 ALIRAN AIR: Tambah pelepasan air dari KOLAM RETENSI untuk lingkungan")
         recommendations.append(f"   • Target minimal: {avg_env_flow:.2f} mm/hari")
 
     # Integrated recommendations
@@ -5002,7 +5002,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
         return
 
     # Periksa kolom-kolom penting untuk visualisasi
-    required_cols = ['date', 'waduk', 'hujan', 'total_demand', 'keandalan']
+    required_cols = ['date', 'kolam_retensi', 'hujan', 'total_demand', 'keandalan']
     missing_cols = [col for col in required_cols if col not in df_hasil.columns]
     if missing_cols:
         print(f"⚠️ Kolom penting hilang: {missing_cols}")
@@ -5209,7 +5209,7 @@ if __name__ == "__main__":
         print("   ✅ Simulasi Hidrologi dengan Deep Learning")
         print("   ✅ Optimasi Supply-Demand Otomatis")
         print("   ✅ Prediksi Banjir & Kekeringan")
-        print("   ✅ Rekomendasi Operasi Waduk Cerdas")
+        print("   ✅ Rekomendasi Operasi KOLAM RETENSI Cerdas")
         print("   ✅ Forecasting 30 Hari Ke Depan")
         print("   ✅ 100% Berbasis Machine Learning")
         
@@ -5244,3 +5244,11 @@ if __name__ == "__main__":
         else:
             print("\n❌ Pilihan tidak valid, menggunakan mode AUTO")
             df, df_hasil, df_prediksi = main(lon=110.42, lat=-7.03, start="2023-01-01", end="2024-05-01")
+
+
+
+
+
+
+
+

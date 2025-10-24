@@ -260,14 +260,14 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         
         try:
             # Check water balance
-            if 'waduk' in df.columns:
-                avg_waduk = df['waduk'].mean()
-                if avg_waduk < 20:
-                    advice.append("🔴 PRIORITAS TINGGI: Waduk kritis (<20mm). Terapkan rationing air segera.")
-                elif avg_waduk < 50:
-                    advice.append("⚠️ PRIORITAS SEDANG: Waduk rendah. Monitor ketat, siapkan contingency plan.")
+            if 'kolam_retensi' in df.columns:
+                avg_kolam_retensi = df['kolam_retensi'].mean()
+                if avg_kolam_retensi < 20:
+                    advice.append("🔴 PRIORITAS TINGGI: Kolam Retensi kritis (<20mm). Terapkan rationing air segera.")
+                elif avg_kolam_retensi < 50:
+                    advice.append("⚠️ PRIORITAS SEDANG: Kolam Retensi rendah. Monitor ketat, siapkan contingency plan.")
                 else:
-                    advice.append("✅ Kapasitas waduk baik. Lanjutkan operasi normal.")
+                    advice.append("✅ Kapasitas Kolam Retensi baik. Lanjutkan operasi normal.")
             
             # Check keandalan
             if 'keandalan' in df.columns:
@@ -326,7 +326,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             "supply_demand": {},
             "alokasi_sektor": {},
             "prediksi": {},
-            "operasi_waduk": {}
+            "operasi_kolam_retensi": {}
         }
         
         try:
@@ -380,11 +380,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "minimum": f"{df['hujan'].min():.2f} mm" if 'hujan' in df.columns else "N/A",
                         "total": f"{df['hujan'].sum():.2f} mm" if 'hujan' in df.columns else "N/A"
                     },
-                    "volume_waduk": {
-                        "rata_rata": f"{df['waduk'].mean():.2f} mm" if 'waduk' in df.columns else "N/A",
-                        "maksimum": f"{df['waduk'].max():.2f} mm" if 'waduk' in df.columns else "N/A",
-                        "minimum": f"{df['waduk'].min():.2f} mm" if 'waduk' in df.columns else "N/A",
-                        "akhir_periode": f"{df['waduk'].iloc[-1]:.2f} mm" if 'waduk' in df.columns and len(df) > 0 else "N/A"
+                    "volume_kolam_retensi": {
+                        "rata_rata": f"{df['kolam_retensi'].mean():.2f} mm" if 'kolam_retensi' in df.columns else "N/A",
+                        "maksimum": f"{df['kolam_retensi'].max():.2f} mm" if 'kolam_retensi' in df.columns else "N/A",
+                        "minimum": f"{df['kolam_retensi'].min():.2f} mm" if 'kolam_retensi' in df.columns else "N/A",
+                        "akhir_periode": f"{df['kolam_retensi'].iloc[-1]:.2f} mm" if 'kolam_retensi' in df.columns and len(df) > 0 else "N/A"
                     },
                     "keandalan_sistem": {
                         "rata_rata": f"{df['keandalan'].mean() * 100:.1f}%" if 'keandalan' in df.columns else "N/A",
@@ -639,10 +639,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "maksimum": f"{df['forecast_hujan'].max():.2f} mm" if 'forecast_hujan' in df.columns else "N/A",
                         "total": f"{df['forecast_hujan'].sum():.2f} mm" if 'forecast_hujan' in df.columns else "N/A"
                     },
-                    "waduk": {
-                        "kondisi_saat_ini": f"{df['waduk'].iloc[-1]:.2f} mm" if len(df) > 0 and 'waduk' in df.columns else "N/A",
-                        "prediksi_30_hari": f"{df['forecast_waduk'].iloc[-1]:.2f} mm" if 'forecast_waduk' in df.columns and len(df) > 0 else "N/A",
-                        "persentase_kapasitas": f"{(df['waduk'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 and 'waduk' in df.columns else "N/A"
+                    "Kolam Retensi": {
+                        "kondisi_saat_ini": f"{df['kolam_retensi'].iloc[-1]:.2f} mm" if len(df) > 0 and 'kolam_retensi' in df.columns else "N/A",
+                        "prediksi_30_hari": f"{df['forecast_kolam_retensi'].iloc[-1]:.2f} mm" if 'forecast_kolam_retensi' in df.columns and len(df) > 0 else "N/A",
+                        "persentase_kapasitas": f"{(df['kolam_retensi'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 and 'kolam_retensi' in df.columns else "N/A"
                     },
                     "keandalan": {
                         "saat_ini": f"{df['keandalan'].mean() * 100:.1f}%" if 'keandalan' in df.columns else "N/A",
@@ -652,13 +652,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     "rekomendasi_forecast": self._generate_forecast_recommendation(df) if len(df) > 0 else "Data tidak cukup"
                 }
                 
-                # Operasi Waduk
-                if 'waduk_action' in df.columns:
-                    summary["operasi_waduk"] = {
-                        "volume_saat_ini": f"{df['waduk'].iloc[-1]:.2f} mm" if len(df) > 0 else "N/A",
-                        "persentase_kapasitas": f"{(df['waduk'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 else "N/A",
-                        "rekomendasi_aksi": df['waduk_action'].iloc[-1] if len(df) > 0 and 'waduk_action' in df.columns else "Maintain",
-                        "tren_30_hari": "Naik" if len(df) >= 30 and df['waduk'].iloc[-1] > df['waduk'].iloc[-30] else "Turun" if len(df) >= 30 else "Stabil"
+                # Operasi Kolam Retensi
+                if 'Kolam Retensi_action' in df.columns:
+                    summary["operasi_kolam_retensi"] = {
+                        "volume_saat_ini": f"{df['kolam_retensi'].iloc[-1]:.2f} mm" if len(df) > 0 else "N/A",
+                        "persentase_kapasitas": f"{(df['kolam_retensi'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 else "N/A",
+                        "rekomendasi_aksi": df['Kolam Retensi_action'].iloc[-1] if len(df) > 0 and 'Kolam Retensi_action' in df.columns else "Maintain",
+                        "tren_30_hari": "Naik" if len(df) >= 30 and df['kolam_retensi'].iloc[-1] > df['kolam_retensi'].iloc[-30] else "Turun" if len(df) >= 30 else "Stabil"
                     }
                 
                 # ⭐ Morfologi - TAMBAHKAN ke hasil_analisis (untuk view BAGIAN 4)
@@ -759,7 +759,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "total_output": f"{validation_data.get('total_output', 0):.2f} mm"
                         },
                         "perubahan_storage": {
-                            "waduk": f"{validation_data.get('storage_waduk', 0):.2f} mm",
+                            "Kolam Retensi": f"{validation_data.get('storage_Kolam Retensi', 0):.2f} mm",
                             "soil_moisture": f"{validation_data.get('storage_soil', 0):.2f} mm" if 'storage_soil' in validation_data else "N/A",
                             "total_storage_change": f"{validation_data.get('total_storage_change', 0):.2f} mm"
                         },
@@ -878,14 +878,14 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "timeline": "2-4 bulan"
                     })
                 
-                # Berdasarkan Waduk
-                if 'waduk' in df.columns and df['waduk'].mean() < 30:
+                # Berdasarkan Kolam Retensi
+                if 'kolam_retensi' in df.columns and df['kolam_retensi'].mean() < 30:
                     saran_perbaikan.append({
-                        "kategori": "Kapasitas Waduk",
+                        "kategori": "Kapasitas Kolam Retensi",
                         "prioritas": "TINGGI",
-                        "masalah": f"Kapasitas waduk kritis ({df['waduk'].mean():.2f} mm)",
+                        "masalah": f"Kapasitas Kolam Retensi kritis ({df['kolam_retensi'].mean():.2f} mm)",
                         "solusi": [
-                            "Evaluasi kapasitas waduk, pertimbangkan peningkatan/penambahan",
+                            "Evaluasi kapasitas Kolam Retensi, pertimbangkan peningkatan/penambahan",
                             "Optimalkan sistem distribusi untuk reduce losses",
                             "Implementasi demand management (rationing, pricing)",
                             "Explore alternative water sources (groundwater, recycled water)"
@@ -1100,7 +1100,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     recommendations.append({
                         "kategori": "Keandalan Sistem",
                         "prioritas": "Tinggi",
-                        "rekomendasi": "Tingkatkan keandalan sistem dengan meningkatkan kapasitas waduk atau menambah sumber air alternatif"
+                        "rekomendasi": "Tingkatkan keandalan sistem dengan meningkatkan kapasitas Kolam Retensi atau menambah sumber air alternatif"
                     })
             
             # Rekomendasi berdasarkan pasokan
@@ -2264,3 +2264,10 @@ if __name__ == "__main__":
         print(f"✅ Using host from command line: {host}")
     
     run_server(port, host)
+
+
+
+
+
+
+
