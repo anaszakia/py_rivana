@@ -281,7 +281,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             
             # Check supply vs demand
             demand_cols = ['demand_Domestik', 'demand_Pertanian', 'demand_Industri']
-            supply_cols = ['supply_Domestik', 'supply_Pertanian', 'supply_Industri']
+            supply_cols = ['pasokan_Domestik', 'pasokan_Pertanian', 'pasokan_Industri']
             
             if all(col in df.columns for col in demand_cols + supply_cols):
                 total_demand = sum(df[col].sum() for col in demand_cols)
@@ -516,29 +516,29 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     }
                 
                 # Alokasi Per Sektor - WITH SAFE COLUMN CHECK
-                sektor_cols = ['supply_Domestik', 'supply_Pertanian', 'supply_Industri', 'supply_Lingkungan']
+                sektor_cols = ['pasokan_Domestik', 'pasokan_Pertanian', 'pasokan_Industri', 'pasokan_Lingkungan']
                 if all(col in df.columns for col in sektor_cols):
                     try:
                         summary["alokasi_sektor"] = {
                             "Domestik": {
-                                "rata_rata": f"{df['supply_Domestik'].mean():.2f} mm/hari",
-                                "total": f"{df['supply_Domestik'].sum():.2f} mm",
-                                "pemenuhan": f"{(df['supply_Domestik'].mean() / 0.4 * 100):.1f}%" if df['supply_Domestik'].mean() > 0 else "0%"
+                                "rata_rata": f"{df['pasokan_Domestik'].mean():.2f} mm/hari",
+                                "total": f"{df['pasokan_Domestik'].sum():.2f} mm",
+                                "pemenuhan": f"{(df['pasokan_Domestik'].mean() / 0.4 * 100):.1f}%" if df['pasokan_Domestik'].mean() > 0 else "0%"
                             },
                             "Pertanian": {
-                                "rata_rata": f"{df['supply_Pertanian'].mean():.2f} mm/hari",
-                                "total": f"{df['supply_Pertanian'].sum():.2f} mm",
-                                "pemenuhan": f"{(df['supply_Pertanian'].mean() / 0.8 * 100):.1f}%" if df['supply_Pertanian'].mean() > 0 else "0%"
+                                "rata_rata": f"{df['pasokan_Pertanian'].mean():.2f} mm/hari",
+                                "total": f"{df['pasokan_Pertanian'].sum():.2f} mm",
+                                "pemenuhan": f"{(df['pasokan_Pertanian'].mean() / 0.8 * 100):.1f}%" if df['pasokan_Pertanian'].mean() > 0 else "0%"
                             },
                             "Industri": {
-                                "rata_rata": f"{df['supply_Industri'].mean():.2f} mm/hari",
-                                "total": f"{df['supply_Industri'].sum():.2f} mm",
-                                "pemenuhan": f"{(df['supply_Industri'].mean() / 0.2 * 100):.1f}%" if df['supply_Industri'].mean() > 0 else "0%"
+                                "rata_rata": f"{df['pasokan_Industri'].mean():.2f} mm/hari",
+                                "total": f"{df['pasokan_Industri'].sum():.2f} mm",
+                                "pemenuhan": f"{(df['pasokan_Industri'].mean() / 0.2 * 100):.1f}%" if df['pasokan_Industri'].mean() > 0 else "0%"
                             },
                             "Lingkungan": {
-                                "rata_rata": f"{df['supply_Lingkungan'].mean():.2f} mm/hari",
-                                "total": f"{df['supply_Lingkungan'].sum():.2f} mm",
-                                "pemenuhan": f"{(df['supply_Lingkungan'].mean() / 0.3 * 100):.1f}%" if df['supply_Lingkungan'].mean() > 0 else "0%"
+                                "rata_rata": f"{df['pasokan_Lingkungan'].mean():.2f} mm/hari",
+                                "total": f"{df['pasokan_Lingkungan'].sum():.2f} mm",
+                                "pemenuhan": f"{(df['pasokan_Lingkungan'].mean() / 0.3 * 100):.1f}%" if df['pasokan_Lingkungan'].mean() > 0 else "0%"
                             }
                         }
                         
@@ -546,27 +546,27 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         summary["hasil_analisis"]["pasokan_air_per_sektor"] = {
                             "Domestik": {
                                 "quota": "0.4 mm/hari",
-                                "alokasi": f"{df['supply_Domestik'].mean():.2f} mm/hari",
-                                "prioritas": "1 (Tertinggi)",
-                                "pemenuhan": f"{(df['supply_Domestik'].mean() / 0.4 * 100):.1f}%"
+                                "alokasi": f"{df['pasokan_Domestik'].mean():.2f} mm/hari" if 'pasokan_Domestik' in df.columns else "N/A",
+                                "prioritas": "10 (Tertinggi)",
+                                "pemenuhan": f"{(df['pasokan_Domestik'].mean() / 0.4 * 100):.1f}%" if 'pasokan_Domestik' in df.columns else "N/A"
                             },
                             "Pertanian": {
                                 "quota": "0.8 mm/hari",
-                                "alokasi": f"{df['supply_Pertanian'].mean():.2f} mm/hari",
-                                "prioritas": "2",
-                                "pemenuhan": f"{(df['supply_Pertanian'].mean() / 0.8 * 100):.1f}%"
+                                "alokasi": f"{df['pasokan_Pertanian'].mean():.2f} mm/hari" if 'pasokan_Pertanian' in df.columns else "N/A",
+                                "prioritas": "7",
+                                "pemenuhan": f"{(df['pasokan_Pertanian'].mean() / 0.8 * 100):.1f}%" if 'pasokan_Pertanian' in df.columns else "N/A"
                             },
                             "Industri": {
                                 "quota": "0.2 mm/hari",
-                                "alokasi": f"{df['supply_Industri'].mean():.2f} mm/hari",
-                                "prioritas": "3",
-                                "pemenuhan": f"{(df['supply_Industri'].mean() / 0.2 * 100):.1f}%"
+                                "alokasi": f"{df['pasokan_Industri'].mean():.2f} mm/hari" if 'pasokan_Industri' in df.columns else "N/A",
+                                "prioritas": "5",
+                                "pemenuhan": f"{(df['pasokan_Industri'].mean() / 0.2 * 100):.1f}%" if 'pasokan_Industri' in df.columns else "N/A"
                             },
                             "Lingkungan": {
                                 "quota": "0.3 mm/hari",
-                                "alokasi": f"{df['supply_Lingkungan'].mean():.2f} mm/hari",
-                                "prioritas": "4",
-                                "pemenuhan": f"{(df['supply_Lingkungan'].mean() / 0.3 * 100):.1f}%"
+                                "alokasi": f"{df['pasokan_Lingkungan'].mean():.2f} mm/hari" if 'pasokan_Lingkungan' in df.columns else "N/A",
+                                "prioritas": "9",
+                                "pemenuhan": f"{(df['pasokan_Lingkungan'].mean() / 0.3 * 100):.1f}%" if 'pasokan_Lingkungan' in df.columns else "N/A"
                             }
                         }
                     except Exception as e:
@@ -605,9 +605,9 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         total_biaya = biaya_operasi + biaya_pemeliharaan + biaya_energi
                         
                         # Check if sektor supply columns exist
-                        manfaat_pertanian = df['supply_Pertanian'].sum() * 500 if 'supply_Pertanian' in df.columns else 0
-                        manfaat_domestik = df['supply_Domestik'].sum() * 800 if 'supply_Domestik' in df.columns else 0
-                        manfaat_industri = df['supply_Industri'].sum() * 1200 if 'supply_Industri' in df.columns else 0
+                        manfaat_pertanian = df['pasokan_Pertanian'].sum() * 500 if 'pasokan_Pertanian' in df.columns else 0
+                        manfaat_domestik = df['pasokan_Domestik'].sum() * 800 if 'pasokan_Domestik' in df.columns else 0
+                        manfaat_industri = df['pasokan_Industri'].sum() * 1200 if 'pasokan_Industri' in df.columns else 0
                         total_manfaat = manfaat_pertanian + manfaat_domestik + manfaat_industri
                         
                         net_benefit = total_manfaat - total_biaya
