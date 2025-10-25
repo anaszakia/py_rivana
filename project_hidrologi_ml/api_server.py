@@ -1779,7 +1779,10 @@ def run_hidrologi_process(job_id, params, result_dir):
                 
                 try:
                     import main_weap_ml
-                    print("✓ Module loaded successfully!\n")
+                    # Force reload module to ensure latest code is used (clear cache)
+                    import importlib
+                    importlib.reload(main_weap_ml)
+                    print("✓ Module loaded successfully (with force reload)!\n")
                     sys.stdout.flush()
                 except Exception as import_error:
                     print(f"✗ ERROR loading main_weap_ml: {str(import_error)}")
