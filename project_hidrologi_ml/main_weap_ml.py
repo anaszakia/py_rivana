@@ -1937,7 +1937,7 @@ class MLCostBenefit:
         for _, row in df_hasil.iterrows():
             supply = row['total_supply']
             reliability = row['keandalan']
-            RETENSI_level = row['kolam_retensi'] / config.kapasitas_RETENSI
+            RETENSI_level = row['kolam_retensi'] / config.kapasitas_kolam_retensi
 
             # Dynamic costs (meningkat saat supply rendah atau reliability rendah)
             stress_factor = 1 + (1 - reliability) * 0.5
