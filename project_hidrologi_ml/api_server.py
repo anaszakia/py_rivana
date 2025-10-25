@@ -259,9 +259,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         advice = []
         
         try:
-            # Check water balance
-            if 'kolam_retensi' in df.columns:
-                avg_kolam_retensi = df['kolam_retensi'].mean()
+            # Check water balance - dengan backward compatibility untuk 'waduk'
+            kolam_col = 'kolam_retensi' if 'kolam_retensi' in df.columns else 'waduk' if 'waduk' in df.columns else None
+            if kolam_col:
+                avg_kolam_retensi = df[kolam_col].mean()
                 if avg_kolam_retensi < 20:
                     advice.append("🔴 PRIORITAS TINGGI: Kolam Retensi kritis (<20mm). Terapkan rationing air segera.")
                 elif avg_kolam_retensi < 50:
@@ -370,6 +371,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 df = pd.read_csv(csv_file)
                 print(f"✅ CSV loaded successfully: {len(df)} rows, {len(df.columns)} columns")
                 print(f"📋 CSV Columns: {list(df.columns)[:20]}")  # Print first 20 columns
+                
+                # ⭐ BACKWARD COMPATIBILITY: Support old 'waduk' column name
+                if 'waduk' in df.columns and 'kolam_retensi' not in df.columns:
+                    print(f"⚠️ Using legacy column name 'waduk' (renaming to 'kolam_retensi')")
+                    df.rename(columns={'waduk': 'kolam_retensi'}, inplace=True)
                 
                 # Statistik Data
                 summary["statistik_data"] = {
@@ -639,7 +645,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "maksimum": f"{df['forecast_hujan'].max():.2f} mm" if 'forecast_hujan' in df.columns else "N/A",
                         "total": f"{df['forecast_hujan'].sum():.2f} mm" if 'forecast_hujan' in df.columns else "N/A"
                     },
-                    "Kolam Retensi": {
+                    "kolam_retensi": {
                         "kondisi_saat_ini": f"{df['kolam_retensi'].iloc[-1]:.2f} mm" if len(df) > 0 and 'kolam_retensi' in df.columns else "N/A",
                         "prediksi_30_hari": f"{df['forecast_kolam_retensi'].iloc[-1]:.2f} mm" if 'forecast_kolam_retensi' in df.columns and len(df) > 0 else "N/A",
                         "persentase_kapasitas": f"{(df['kolam_retensi'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 and 'kolam_retensi' in df.columns else "N/A"
