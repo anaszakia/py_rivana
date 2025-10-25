@@ -4849,6 +4849,17 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     ml_forecast = MLForecaster()
     ml_forecast.train(df_hasil)
     df_prediksi = ml_forecast.forecast(df_hasil)
+    
+    # ⭐ MERGE PREDIKSI KE DF_HASIL DENGAN PREFIX 'forecast_'
+    # Ambil nilai prediksi hari pertama sebagai forecast untuk hari terakhir df_hasil
+    if len(df_prediksi) > 0:
+        # Rename kolom prediksi dengan prefix 'forecast_'
+        forecast_cols = ['hujan', 'et', 'kolam_retensi', 'akuifer', 'keandalan', 'total_supply']
+        for col in forecast_cols:
+            if col in df_prediksi.columns:
+                # Add forecast values sebagai kolom baru di df_hasil
+                # Gunakan nilai rata-rata 30 hari prediksi atau nilai hari pertama
+                df_hasil[f'forecast_{col}'] = df_prediksi[col].iloc[0]  # Atau bisa .mean() untuk rata-rata
 
     # 7-10. Additional ML Modules
     ml_rights = MLWaterRights()
