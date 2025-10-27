@@ -34,10 +34,13 @@ PNG Files (6):
   5. RIVANA_Morphology_Ecology_Dashboard.png - Morphology & ecology
   6. RIVANA_Baseline_Comparison.png - ML vs Traditional methods
 
-CSV Files (3):
+CSV Files (4):
   1. RIVANA_Hasil_Complete.csv - Complete simulation results
   2. RIVANA_Monthly_WaterBalance.csv - Monthly water balance
   3. RIVANA_Prediksi_30Hari.csv - 30-day rainfall & reservoir forecast
+  4. RIVANA_GEE_Raw_Data.csv - ⭐ NEW: Raw satellite data from Google Earth Engine
+     (Columns: Date, Rainfall, Temperature, ET, Soil Moisture, NDVI, LST, etc.)
+     Sorted by date for historical analysis
 
 JSON Files (4):
   1. RIVANA_WaterBalance_Validation.json - Water balance validation (error â‰¤ 5%)
@@ -1863,7 +1866,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                     ],
                     'csv': [
                         'RIVANA_Hasil_Complete.csv',
-                        'RIVANA_Monthly_WaterBalance.csv'
+                        'RIVANA_Monthly_WaterBalance.csv',
+                        'RIVANA_GEE_Raw_Data.csv'  # ⭐ NEW: Raw GEE data
                     ],
                     'json': [
                         'RIVANA_WaterBalance_Validation.json',
@@ -2199,7 +2203,8 @@ def run_server(port=8000, host='127.0.0.1'):
     print("\nðŸ†• OUTPUT FILES TERBARU:")
     print("  ðŸ“Š PNG (6 files): Dashboard, Enhanced, WaterBalance, Morphometry,")
     print("                    Morphology-Ecology, Baseline Comparison")
-    print("  ðŸ“„ CSV (3 files): Complete Results, Monthly WaterBalance, Prediksi 30 Hari")
+    print("  📄 CSV (4 files): Complete Results, Monthly WaterBalance, Prediksi 30 Hari,")
+    print("                    ⭐ GEE Raw Data (Rainfall, Temp, ET, Soil Moisture, NDVI)")
     print("  ðŸ“‹ JSON (4 files): WaterBalance Validation, Model Validation,")
     print("                     Baseline Comparison, Model Validation Report")
     print("\nâ° FILE RETENTION POLICY:")

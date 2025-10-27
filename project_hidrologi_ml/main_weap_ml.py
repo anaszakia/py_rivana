@@ -71,6 +71,174 @@ def safe_json_dump(data, filename):
         print(f"   ✅ {filename} tersimpan")
     except Exception as e:
         print(f"   ⚠️ Error menyimpan {filename}: {str(e)}")
+
+def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=None):
+    """
+    Save raw GEE data to CSV with comprehensive metadata
+    
+    Args:
+        df: DataFrame with GEE data
+        lon: Longitude
+        lat: Latitude
+        morphology_data: Dictionary with morphology info
+        output_dir: Output directory (optional)
+    
+    Returns:
+        str: Path to saved CSV file
+    """
+    import os
+    from datetime import datetime
+    
+    # Prepare raw GEE data
+    df_gee_raw = df[['date', 'hujan', 'suhu', 'ndvi', 'kelembaban_tanah', 'et']].copy()
+    
+    # Add location metadata
+    df_gee_raw.insert(1, 'longitude', lon)
+    df_gee_raw.insert(2, 'latitude', lat)
+    
+    # Add morphology data
+    df_gee_raw['elevasi_m'] = morphology_data.get('elevation', 0)
+    df_gee_raw['slope_derajat'] = morphology_data.get('slope_mean', 0)
+    
+    # Reorder columns
+    column_order = [
+        'date', 'longitude', 'latitude', 'elevasi_m', 'slope_derajat',
+        'hujan', 'suhu', 'kelembaban_tanah', 'ndvi', 'et'
+    ]
+    df_gee_raw = df_gee_raw[column_order]
+    
+    # Determine output file path
+    if output_dir:
+        gee_raw_file = os.path.join(output_dir, 'RIVANA_Data_GEE_Raw.csv')
+        metadata_file = os.path.join(output_dir, 'RIVANA_Data_GEE_Metadata.json')
+    else:
+        gee_raw_file = 'RIVANA_Data_GEE_Raw.csv'
+        metadata_file = 'RIVANA_Data_GEE_Metadata.json'
+    
+    # Save CSV
+    df_gee_raw.to_csv(gee_raw_file, index=False, float_format='%.4f')
+    
+    # Create comprehensive metadata
+    metadata = {
+        'file_info': {
+            'filename': os.path.basename(gee_raw_file),
+            'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'file_type': 'Raw Google Earth Engine Data',
+            'version': '1.0'
+        },
+        'location': {
+            'longitude': float(lon),
+            'latitude': float(lat),
+            'elevation_m': float(morphology_data.get('elevation', 0)),
+            'slope_degree': float(morphology_data.get('slope_mean', 0))
+        },
+        'period': {
+            'start_date': str(df_gee_raw['date'].min()),
+            'end_date': str(df_gee_raw['date'].max()),
+            'total_days': len(df_gee_raw)
+        },
+        'data_sources': {
+            'hujan': {
+                'name': 'CHIRPS Daily',
+                'source': 'UCSB-CHG/CHIRPS/DAILY',
+                'description': 'Climate Hazards Group InfraRed Precipitation with Station data',
+                'unit': 'mm/day',
+                'resolution': '0.05° (~5.5 km)',
+                'provider': 'University of California, Santa Barbara'
+            },
+            'suhu': {
+                'name': 'ERA5-Land Daily',
+                'source': 'ECMWF/ERA5_LAND/DAILY_AGGR',
+                'description': 'Temperature 2m above surface',
+                'unit': '°C',
+                'resolution': '0.1° (~11 km)',
+                'provider': 'European Centre for Medium-Range Weather Forecasts'
+            },
+            'kelembaban_tanah': {
+                'name': 'SMAP Soil Moisture',
+                'source': 'NASA_USDA/HSL/SMAP10KM_soil_moisture',
+                'description': 'Surface soil moisture (0-5cm depth)',
+                'unit': 'volumetric fraction',
+                'resolution': '10 km',
+                'provider': 'NASA USDA'
+            },
+            'ndvi': {
+                'name': 'MODIS NDVI',
+                'source': 'MODIS/006/MOD13Q1',
+                'description': 'Normalized Difference Vegetation Index (16-day composite)',
+                'unit': 'dimensionless (-1 to 1)',
+                'resolution': '250 m',
+                'provider': 'NASA EOSDIS'
+            },
+            'et': {
+                'name': 'Evapotranspiration (ML Estimated)',
+                'source': 'Machine Learning Model',
+                'description': 'Estimated using Random Forest based on temperature, NDVI, and soil moisture',
+                'unit': 'mm/day',
+                'provider': 'RIVANA ML Module'
+            },
+            'elevasi_m': {
+                'name': 'SRTM DEM',
+                'source': 'USGS/SRTMGL1_003',
+                'description': 'Shuttle Radar Topography Mission Digital Elevation Model',
+                'unit': 'meters',
+                'resolution': '30 m',
+                'provider': 'USGS'
+            }
+        },
+        'statistics': {
+            'hujan_mm_day': {
+                'min': float(df_gee_raw['hujan'].min()),
+                'max': float(df_gee_raw['hujan'].max()),
+                'mean': float(df_gee_raw['hujan'].mean()),
+                'std': float(df_gee_raw['hujan'].std()),
+                'total': float(df_gee_raw['hujan'].sum())
+            },
+            'suhu_celsius': {
+                'min': float(df_gee_raw['suhu'].min()),
+                'max': float(df_gee_raw['suhu'].max()),
+                'mean': float(df_gee_raw['suhu'].mean()),
+                'std': float(df_gee_raw['suhu'].std())
+            },
+            'kelembaban_tanah': {
+                'min': float(df_gee_raw['kelembaban_tanah'].min()),
+                'max': float(df_gee_raw['kelembaban_tanah'].max()),
+                'mean': float(df_gee_raw['kelembaban_tanah'].mean()),
+                'std': float(df_gee_raw['kelembaban_tanah'].std())
+            },
+            'ndvi': {
+                'min': float(df_gee_raw['ndvi'].min()),
+                'max': float(df_gee_raw['ndvi'].max()),
+                'mean': float(df_gee_raw['ndvi'].mean()),
+                'std': float(df_gee_raw['ndvi'].std())
+            },
+            'et_mm_day': {
+                'min': float(df_gee_raw['et'].min()),
+                'max': float(df_gee_raw['et'].max()),
+                'mean': float(df_gee_raw['et'].mean()),
+                'std': float(df_gee_raw['et'].std()),
+                'total': float(df_gee_raw['et'].sum())
+            }
+        },
+        'column_descriptions': {
+            'date': 'Date of observation (YYYY-MM-DD)',
+            'longitude': 'Longitude coordinate (decimal degrees)',
+            'latitude': 'Latitude coordinate (decimal degrees)',
+            'elevasi_m': 'Elevation above sea level (meters)',
+            'slope_derajat': 'Average slope (degrees)',
+            'hujan': 'Daily rainfall (mm/day)',
+            'suhu': 'Average air temperature (°C)',
+            'kelembaban_tanah': 'Surface soil moisture (volumetric fraction 0-1)',
+            'ndvi': 'Normalized Difference Vegetation Index (-1 to 1)',
+            'et': 'Evapotranspiration estimated by ML (mm/day)'
+        }
+    }
+    
+    # Save metadata to JSON
+    safe_json_dump(metadata, metadata_file)
+    
+    return gee_raw_file, metadata_file, metadata
+
 # ==========================================
 # KONFIGURASI SISTEM RIVANA
 # ==========================================
@@ -4802,6 +4970,36 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     # 1. Fetch Data
     df = fetch_gee_data(lon, lat, start, end)
     morphology_data = fetch_morphology_data(lon, lat, start, end)
+    
+    # ⭐ SAVE RAW GEE DATA TO CSV WITH METADATA
+    print_section("MENYIMPAN DATA MENTAH GEE", "💾")
+    
+    gee_file, metadata_file, metadata = save_gee_raw_data_with_metadata(
+        df, lon, lat, morphology_data, output_dir
+    )
+    
+    print(f"\n✅ Data Mentah GEE tersimpan:")
+    print(f"   📄 {os.path.basename(gee_file)}")
+    print(f"   � {os.path.basename(metadata_file)}")
+    print(f"\n📊 Ringkasan Data:")
+    print(f"   📅 Periode        : {metadata['period']['start_date']} s/d {metadata['period']['end_date']}")
+    print(f"   � Total Data     : {metadata['period']['total_days']} hari")
+    print(f"   📍 Lokasi         : {metadata['location']['latitude']:.4f}°, {metadata['location']['longitude']:.4f}°")
+    print(f"   🏔️ Elevasi        : {metadata['location']['elevation_m']:.1f} m")
+    print(f"   📐 Kemiringan     : {metadata['location']['slope_degree']:.2f}°")
+    print(f"\n📋 Kolom Data GEE:")
+    for col, desc in metadata['column_descriptions'].items():
+        print(f"   • {col:20s} - {desc}")
+    print(f"\n📊 Statistik Klimatologi:")
+    stats = metadata['statistics']
+    print(f"   🌧️ Hujan         : {stats['hujan_mm_day']['mean']:.2f} mm/hari (min: {stats['hujan_mm_day']['min']:.2f}, max: {stats['hujan_mm_day']['max']:.2f})")
+    print(f"   🌡️ Suhu          : {stats['suhu_celsius']['mean']:.1f}°C (min: {stats['suhu_celsius']['min']:.1f}, max: {stats['suhu_celsius']['max']:.1f})")
+    print(f"   💧 Kelembaban    : {stats['kelembaban_tanah']['mean']:.3f} (min: {stats['kelembaban_tanah']['min']:.3f}, max: {stats['kelembaban_tanah']['max']:.3f})")
+    print(f"   🌿 NDVI          : {stats['ndvi']['mean']:.3f} (min: {stats['ndvi']['min']:.3f}, max: {stats['ndvi']['max']:.3f})")
+    print(f"   💨 ET            : {stats['et_mm_day']['mean']:.2f} mm/hari (min: {stats['et_mm_day']['min']:.2f}, max: {stats['et_mm_day']['max']:.2f})")
+    print(f"\n🔍 Sumber Data:")
+    for var, info in metadata['data_sources'].items():
+        print(f"   • {var:20s} → {info['name']} ({info['source']})")
 
     # 2. ML Hydrological Simulator
     ml_hydro = MLHydroSimulator(output_dir=output_dir if output_dir else '.')  # ✅ FIX: Pass output_dir
