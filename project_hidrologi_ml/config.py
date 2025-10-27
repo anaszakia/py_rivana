@@ -20,7 +20,7 @@ class Config:
         
         # API Configuration
         self.API_HOST = self._clean_value(os.getenv('API_HOST', '127.0.0.1'))
-        self.API_PORT = int(os.getenv('API_PORT', '8000'))
+        self.API_PORT = int(os.getenv('API_PORT', '8001'))
         self.DEBUG = self._clean_value(os.getenv('DEBUG', 'False')).lower() == 'true'
         
         # Paths
@@ -31,8 +31,8 @@ class Config:
         self.EE_AUTHENTICATED = self._clean_value(os.getenv('EE_AUTHENTICATED', 'True')).lower() == 'true'
         
         # Security - Clean quotes from token values
-        self.SECRET_KEY = self._clean_value(os.getenv('SECRET_KEY', 'default_secret_key_CHANGE_IN_PRODUCTION'))
-        self.API_TOKEN = self._clean_value(os.getenv('API_TOKEN', 'dev_token_12345'))  # Bearer Token for API authentication
+        self.SECRET_KEY = self._clean_value(os.getenv('SECRET_KEY', '893d3a0b7779b5b08fca2b83527a7c388b8d2dab79afee728861866f10b4f5f1'))
+        self.API_TOKEN = self._clean_value(os.getenv('API_TOKEN', 'a7f3e9d2b1c8f4a6e2d9b7c3f1a8e5d4'))  # Bearer Token for API authentication
         
         # Limits
         self.MAX_CONCURRENT_JOBS = int(os.getenv('MAX_CONCURRENT_JOBS', '2'))
