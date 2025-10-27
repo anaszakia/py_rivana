@@ -18,7 +18,7 @@ try:
     CONFIG_LOADED = True
 except ImportError:
     CONFIG_LOADED = False
-    print("⚠️  Warning: config.py not found, using defaults")
+    print("âš ï¸  Warning: config.py not found, using defaults")
 
 """
 API SERVER HIDROLOGI ML (RIVANA)
@@ -40,8 +40,8 @@ CSV Files (3):
   3. RIVANA_Prediksi_30Hari.csv - 30-day rainfall & reservoir forecast
 
 JSON Files (4):
-  1. RIVANA_WaterBalance_Validation.json - Water balance validation (error ≤ 5%)
-  2. RIVANA_Model_Validation_Complete.json - NSE, R², PBIAS, RMSE metrics
+  1. RIVANA_WaterBalance_Validation.json - Water balance validation (error â‰¤ 5%)
+  2. RIVANA_Model_Validation_Complete.json - NSE, RÂ², PBIAS, RMSE metrics
   3. baseline_comparison.json - ML vs Traditional comparison results
   4. model_validation_report.json - Detailed validation report
 
@@ -56,7 +56,7 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-    print("⚠️  Warning: pandas tidak tersedia, fitur summary akan terbatas")
+    print("âš ï¸  Warning: pandas tidak tersedia, fitur summary akan terbatas")
 
 # Simpan hasil proses berdasarkan job ID
 RESULTS = {}
@@ -91,7 +91,7 @@ def cleanup_old_jobs(max_age_days=30):
     current_time = datetime.now()
     
     print(f"\n{'='*80}")
-    print(f"🧹 AUTO-CLEANUP: Checking for jobs older than {max_age_days} days")
+    print(f"ðŸ§¹ AUTO-CLEANUP: Checking for jobs older than {max_age_days} days")
     print(f"{'='*80}")
     
     for job_id in os.listdir(results_dir):
@@ -123,21 +123,21 @@ def cleanup_old_jobs(max_age_days=30):
                 deleted_count += 1
                 freed_space += dir_size_mb
                 
-                print(f"  ✅ Deleted job {job_id} (Age: {age_days} days, Size: {dir_size_mb:.2f} MB)")
+                print(f"  âœ… Deleted job {job_id} (Age: {age_days} days, Size: {dir_size_mb:.2f} MB)")
                 
                 # Remove from RESULTS if exists
                 if job_id in RESULTS:
                     del RESULTS[job_id]
                     
         except Exception as e:
-            print(f"  ⚠️  Error deleting job {job_id}: {e}")
+            print(f"  âš ï¸  Error deleting job {job_id}: {e}")
     
     if deleted_count > 0:
-        print(f"\n📊 Cleanup Summary:")
+        print(f"\nðŸ“Š Cleanup Summary:")
         print(f"  Jobs Deleted: {deleted_count}")
         print(f"  Space Freed: {freed_space:.2f} MB")
     else:
-        print(f"  ✅ No jobs older than {max_age_days} days found")
+        print(f"  âœ… No jobs older than {max_age_days} days found")
     
     print(f"{'='*80}\n")
     
@@ -147,7 +147,7 @@ def load_existing_jobs():
     """Load existing jobs from results directory"""
     results_dir = get_results_dir()
     if not os.path.exists(results_dir):
-        print(f"⚠️  Results directory not found: {results_dir}")
+        print(f"âš ï¸  Results directory not found: {results_dir}")
         return
     
     job_count = 0
@@ -164,7 +164,7 @@ def load_existing_jobs():
                 with open(params_file, 'r') as f:
                     params = json.load(f)
             except Exception as e:
-                print(f"⚠️  Failed to load params for job {job_id}: {e}")
+                print(f"âš ï¸  Failed to load params for job {job_id}: {e}")
         
         # Check if files exist to determine status
         png_files = [f for f in os.listdir(job_dir) if f.endswith('.png')]
@@ -199,22 +199,32 @@ def load_existing_jobs():
         }
         job_count += 1
     
-    print(f"✅ Loaded {job_count} existing jobs from disk\n")
+    print(f"âœ… Loaded {job_count} existing jobs from disk\n")
 
 class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
     def _check_auth(self):
         """Check Bearer Token authentication"""
         # Get Authorization header
         auth_header = self.headers.get('Authorization', '')
-        
-        # Check if token matches
-        if CONFIG_LOADED:
-            expected_token = f"Bearer {config.API_TOKEN}"
+    
+        # Extract token from header (handle both "Bearer token" and "token" format)
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]  # Remove "Bearer " prefix
         else:
-            expected_token = "Bearer rivana_ml_2024_secure_token_change_this"
-        
-        if auth_header != expected_token:
+            token = auth_header  # Use as-is if no prefix
+    
+        # Get expected token
+        if CONFIG_LOADED:
+            expected_token = config.API_TOKEN
+        else:
+            expected_token = "rivana_ml_2024_secure_token_change_this"
+    
+        # Compare tokens (case-sensitive)
+        if token != expected_token:
+            print(f"❌ Auth failed - Received: {token[:20]}... Expected: {expected_token[:20]}...")
             return False
+    
+        print(f"✅ Auth success")
         return True
     
     def _send_auth_error(self):
@@ -246,11 +256,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             recent_forecast = df['forecast_hujan'].iloc[-30:].mean()
             
             if recent_forecast > 10:
-                return "⚠️ Potensi HUJAN TINGGI. Siapkan mitigasi banjir, pastikan drainase optimal."
+                return "âš ï¸ Potensi HUJAN TINGGI. Siapkan mitigasi banjir, pastikan drainase optimal."
             elif recent_forecast > 5:
-                return "✅ Kondisi NORMAL. Ketersediaan air mencukupi."
+                return "âœ… Kondisi NORMAL. Ketersediaan air mencukupi."
             else:
-                return "🔴 Potensi KEKERINGAN. Hemat air, pertimbangkan irigasi alternatif."
+                return "ðŸ”´ Potensi KEKERINGAN. Hemat air, pertimbangkan irigasi alternatif."
         except Exception as e:
             return f"Gagal generate rekomendasi: {str(e)}"
     
@@ -264,21 +274,21 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             if kolam_col:
                 avg_kolam_retensi = df[kolam_col].mean()
                 if avg_kolam_retensi < 20:
-                    advice.append("🔴 PRIORITAS TINGGI: Kolam Retensi kritis (<20mm). Terapkan rationing air segera.")
+                    advice.append("ðŸ”´ PRIORITAS TINGGI: Kolam Retensi kritis (<20mm). Terapkan rationing air segera.")
                 elif avg_kolam_retensi < 50:
-                    advice.append("⚠️ PRIORITAS SEDANG: Kolam Retensi rendah. Monitor ketat, siapkan contingency plan.")
+                    advice.append("âš ï¸ PRIORITAS SEDANG: Kolam Retensi rendah. Monitor ketat, siapkan contingency plan.")
                 else:
-                    advice.append("✅ Kapasitas Kolam Retensi baik. Lanjutkan operasi normal.")
+                    advice.append("âœ… Kapasitas Kolam Retensi baik. Lanjutkan operasi normal.")
             
             # Check keandalan
             if 'keandalan' in df.columns:
                 avg_keandalan = df['keandalan'].mean()
                 if avg_keandalan < 0.7:
-                    advice.append("🔴 Keandalan sistem <70%. Audit infrastruktur, kurangi kebocoran.")
+                    advice.append("ðŸ”´ Keandalan sistem <70%. Audit infrastruktur, kurangi kebocoran.")
                 elif avg_keandalan < 0.85:
-                    advice.append("⚠️ Keandalan moderat. Tingkatkan maintenance preventif.")
+                    advice.append("âš ï¸ Keandalan moderat. Tingkatkan maintenance preventif.")
                 else:
-                    advice.append("✅ Keandalan sistem excellent (>85%). Maintain standar operasi.")
+                    advice.append("âœ… Keandalan sistem excellent (>85%). Maintain standar operasi.")
             
             # Check supply vs demand
             demand_cols = ['demand_Domestik', 'demand_Pertanian', 'demand_Industri']
@@ -290,16 +300,16 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 ratio = total_supply / total_demand if total_demand > 0 else 0
                 
                 if ratio < 0.9:
-                    advice.append("🔴 KRITIS: Supply < 90% demand. Terapkan demand management, cari sumber alternatif.")
+                    advice.append("ðŸ”´ KRITIS: Supply < 90% demand. Terapkan demand management, cari sumber alternatif.")
                 elif ratio < 1.0:
-                    advice.append("⚠️ Supply mendekati limit. Optimalkan distribusi, reduce losses.")
+                    advice.append("âš ï¸ Supply mendekati limit. Optimalkan distribusi, reduce losses.")
                 else:
-                    advice.append("✅ Supply mencukupi. Fokus pada efisiensi dan konservasi jangka panjang.")
+                    advice.append("âœ… Supply mencukupi. Fokus pada efisiensi dan konservasi jangka panjang.")
             
-            return advice if advice else ["✅ Sistem berjalan normal, lanjutkan monitoring rutin."]
+            return advice if advice else ["âœ… Sistem berjalan normal, lanjutkan monitoring rutin."]
         
         except Exception as e:
-            return [f"⚠️ Tidak dapat generate saran: {str(e)}"]
+            return [f"âš ï¸ Tidak dapat generate saran: {str(e)}"]
 
     def generate_summary_text(self, csv_file, monthly_file, validation_file, job_data):
         """Generate summary text dari hasil analisis - COMPREHENSIVE VERSION"""
@@ -312,7 +322,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             }
         
         summary = {
-            "title": "📊 RINGKASAN HASIL ANALISIS HIDROLOGI",
+            "title": "ðŸ“Š RINGKASAN HASIL ANALISIS HIDROLOGI",
             "job_info": {},
             "input_parameters": {},
             "hasil_analisis": {},
@@ -367,14 +377,14 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             
             # Baca data CSV jika ada
             if os.path.exists(csv_file):
-                print(f"✅ Reading CSV file: {csv_file}")
+                print(f"âœ… Reading CSV file: {csv_file}")
                 df = pd.read_csv(csv_file)
-                print(f"✅ CSV loaded successfully: {len(df)} rows, {len(df.columns)} columns")
-                print(f"📋 CSV Columns: {list(df.columns)[:20]}")  # Print first 20 columns
+                print(f"âœ… CSV loaded successfully: {len(df)} rows, {len(df.columns)} columns")
+                print(f"ðŸ“‹ CSV Columns: {list(df.columns)[:20]}")  # Print first 20 columns
                 
-                # ⭐ BACKWARD COMPATIBILITY: Support old 'waduk' column name
+                # â­ BACKWARD COMPATIBILITY: Support old 'waduk' column name
                 if 'waduk' in df.columns and 'kolam_retensi' not in df.columns:
-                    print(f"⚠️ Using legacy column name 'waduk' (renaming to 'kolam_retensi')")
+                    print(f"âš ï¸ Using legacy column name 'waduk' (renaming to 'kolam_retensi')")
                     df.rename(columns={'waduk': 'kolam_retensi'}, inplace=True)
                 
                 # Statistik Data
@@ -433,16 +443,16 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     }
             else:
                 # CSV file tidak ditemukan
-                print(f"❌ CSV file not found: {csv_file}")
+                print(f"âŒ CSV file not found: {csv_file}")
                 summary["error_detail"] = f"CSV file tidak ditemukan: {os.path.basename(csv_file)}"
                 summary["statistik_data"]["total_hari"] = "N/A - File tidak tersedia"
             
             # Water Balance
             if os.path.exists(validation_file):
-                print(f"✅ Reading validation file: {validation_file}")
+                print(f"âœ… Reading validation file: {validation_file}")
                 with open(validation_file, 'r') as f:
                     wb_data = json.load(f)
-                    print(f"✅ Validation data loaded: {len(wb_data)} keys")
+                    print(f"âœ… Validation data loaded: {len(wb_data)} keys")
                     summary["water_balance"] = {
                         "total_input": f"{wb_data.get('total_input_mm', 0):.2f} mm",
                         "total_output": f"{wb_data.get('total_output_mm', 0):.2f} mm",
@@ -454,7 +464,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "monthly_summary": wb_data.get('monthly_summary', [])
                     }
             else:
-                print(f"❌ Validation file not found: {validation_file}")
+                print(f"âŒ Validation file not found: {validation_file}")
                 summary["water_balance"]["error_detail"] = "File validasi tidak tersedia"
             
             print(f"{'='*80}\n")
@@ -548,7 +558,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             }
                         }
                         
-                        # ⭐ TAMBAHKAN untuk hasil_analisis.pasokan_air_per_sektor (untuk view BAGIAN 1)
+                        # â­ TAMBAHKAN untuk hasil_analisis.pasokan_air_per_sektor (untuk view BAGIAN 1)
                         summary["hasil_analisis"]["pasokan_air_per_sektor"] = {
                             "Domestik": {
                                 "quota": "0.4 mm/hari",
@@ -576,36 +586,36 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             }
                         }
                     except Exception as e:
-                        print(f"⚠️ Warning: Could not generate sektor allocation data: {e}")
+                        print(f"âš ï¸ Warning: Could not generate sektor allocation data: {e}")
                         summary["alokasi_sektor"] = {"error": "Data alokasi sektor tidak tersedia"}
                         summary["hasil_analisis"]["pasokan_air_per_sektor"] = {"error": "Data tidak tersedia"}
                 
-                # ⭐ TAMBAHKAN sumber_air (untuk view BAGIAN 2)
+                # â­ TAMBAHKAN sumber_air (untuk view BAGIAN 2)
                 if 'total_supply' in df.columns:
                     total_supply = df['total_supply'].mean()
                     summary["hasil_analisis"]["sumber_air"] = {
                         "Sungai": {
                             "pasokan": f"{total_supply * 0.60:.2f} mm/hari",
-                            "biaya": "Rp 150/m³",
+                            "biaya": "Rp 150/mÂ³",
                             "kontribusi": "60%"
                         },
                         "Diversi": {
                             "pasokan": f"{total_supply * 0.25:.2f} mm/hari",
-                            "biaya": "Rp 200/m³",
+                            "biaya": "Rp 200/mÂ³",
                             "kontribusi": "25%"
                         },
                         "Air Tanah": {
                             "pasokan": f"{total_supply * 0.15:.2f} mm/hari",
-                            "biaya": "Rp 350/m³",
+                            "biaya": "Rp 350/mÂ³",
                             "kontribusi": "15%"
                         }
                     }
                 
-                # ⭐ TAMBAHKAN ekonomi detail (untuk view BAGIAN 3) - WITH SAFE COLUMN CHECK
+                # â­ TAMBAHKAN ekonomi detail (untuk view BAGIAN 3) - WITH SAFE COLUMN CHECK
                 if 'total_supply' in df.columns and 'total_demand' in df.columns:
                     try:
                         total_vol = df['total_supply'].sum()
-                        biaya_operasi = total_vol * 150  # Rp/m³
+                        biaya_operasi = total_vol * 150  # Rp/mÂ³
                         biaya_pemeliharaan = biaya_operasi * 0.15
                         biaya_energi = biaya_operasi * 0.20
                         total_biaya = biaya_operasi + biaya_pemeliharaan + biaya_energi
@@ -634,10 +644,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             }
                         }
                     except Exception as e:
-                        print(f"⚠️ Warning: Could not generate ekonomi data: {e}")
+                        print(f"âš ï¸ Warning: Could not generate ekonomi data: {e}")
                         summary["hasil_analisis"]["ekonomi"] = {"error": "Data ekonomi tidak tersedia"}
                 
-                # ⭐ Prediksi Hujan 30 Hari & Forecast (LENGKAP)
+                # â­ Prediksi Hujan 30 Hari & Forecast (LENGKAP)
                 summary["prediksi_30_hari"] = {
                     "hujan": {
                         "rata_rata": f"{df['forecast_hujan'].mean():.2f} mm/hari" if 'forecast_hujan' in df.columns else "Data belum tersedia",
@@ -667,17 +677,17 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "tren_30_hari": "Naik" if len(df) >= 30 and df['kolam_retensi'].iloc[-1] > df['kolam_retensi'].iloc[-30] else "Turun" if len(df) >= 30 else "Stabil"
                     }
                 
-                # ⭐ Morfologi - TAMBAHKAN ke hasil_analisis (untuk view BAGIAN 4)
+                # â­ Morfologi - TAMBAHKAN ke hasil_analisis (untuk view BAGIAN 4)
                 morph_cols = ['channel_width', 'slope', 'sediment_load']
                 if any(col in df.columns for col in morph_cols):
                     morfologi_data = {
                         "lebar_sungai": f"{df['channel_width'].mean():.2f} m" if 'channel_width' in df.columns else "N/A",
-                        "kemiringan": f"{df['slope'].mean():.2f}°" if 'slope' in df.columns else "N/A",
+                        "kemiringan": f"{df['slope'].mean():.2f}Â°" if 'slope' in df.columns else "N/A",
                         "beban_sedimen": f"{df['sediment_load'].mean():.2f} ton/hari" if 'sediment_load' in df.columns else "N/A",
                         "erosi_rata_rata": f"{df['erosion_rate'].mean():.2f} mm/tahun" if 'erosion_rate' in df.columns else "N/A"
                     }
                     summary["morfologi"] = morfologi_data
-                    # ⭐ PENTING: Tambahkan juga ke hasil_analisis untuk view
+                    # â­ PENTING: Tambahkan juga ke hasil_analisis untuk view
                     summary["hasil_analisis"]["morfologi"] = morfologi_data
                 
                 # Ekologi Detail
@@ -687,11 +697,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "kesehatan_ekosistem": f"{eco_health:.1f}%",
                         "habitat_ikan": f"{df['fish_HSI'].mean():.2f}" if 'fish_HSI' in df.columns else "N/A",
                         "habitat_vegetasi": f"{df['vegetation_HSI'].mean():.2f}" if 'vegetation_HSI' in df.columns else "N/A",
-                        "suhu_air": f"{df['suhu'].mean():.1f}°C" if 'suhu' in df.columns else "N/A",
+                        "suhu_air": f"{df['suhu'].mean():.1f}Â°C" if 'suhu' in df.columns else "N/A",
                         "status": self.get_ecosystem_status(eco_health)
                     }
                     
-                    # ⭐ TAMBAHKAN habitat detail untuk kesehatan_ekosistem di hasil_analisis
+                    # â­ TAMBAHKAN habitat detail untuk kesehatan_ekosistem di hasil_analisis
                     if 'kesehatan_ekosistem' not in summary["hasil_analisis"]:
                         summary["hasil_analisis"]["kesehatan_ekosistem"] = {}
                     
@@ -706,7 +716,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         }
                     }
                 
-                # ⭐ TAMBAHKAN ringkasan_sistem (untuk view BAGIAN 5)
+                # â­ TAMBAHKAN ringkasan_sistem (untuk view BAGIAN 5)
                 if 'keandalan' in df.columns and 'total_supply' in df.columns and 'total_demand' in df.columns:
                     keandalan = df['keandalan'].mean() * 100
                     supply_demand_ratio = (df['total_supply'].mean() / df['total_demand'].mean() * 100) if df['total_demand'].mean() > 0 else 0
@@ -736,7 +746,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         }
                     }
             
-            # ⭐⭐⭐ COMPREHENSIVE SECTIONS - MATCH TERMINAL OUTPUT ⭐⭐⭐
+            # â­â­â­ COMPREHENSIVE SECTIONS - MATCH TERMINAL OUTPUT â­â­â­
             
             # 1. ANALISIS KESEIMBANGAN AIR (LENGKAP)
             if os.path.exists(validation_file):
@@ -747,7 +757,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     summary["analisis_keseimbangan_air"] = {
                         "validasi_massa": {
                             "error_persentase": f"{validation_data.get('mass_balance_error_pct', 0):.4f}%",
-                            "status": "✅ VALID" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "⚠️ PERLU REVIEW",
+                            "status": "âœ… VALID" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "âš ï¸ PERLU REVIEW",
                             "residual": f"{validation_data.get('residual', 0):.2f} mm",
                             "keterangan": "Keseimbangan massa terjaga" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "Perlu kalibrasi ulang"
                         },
@@ -983,12 +993,12 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         except KeyError as e:
             summary["error"] = f"Missing column in data: {str(e)}"
             summary["error_detail"] = f"Kolom '{str(e)}' tidak ditemukan di CSV. Data mungkin belum lengkap ter-generate."
-            print(f"❌ KeyError in generate_summary_text: {e}")
+            print(f"âŒ KeyError in generate_summary_text: {e}")
             traceback.print_exc()
         except Exception as e:
             summary["error"] = f"Error generating summary: {str(e)}"
             summary["error_detail"] = "Terjadi kesalahan saat membuat ringkasan hasil"
-            print(f"❌ Exception in generate_summary_text: {e}")
+            print(f"âŒ Exception in generate_summary_text: {e}")
             traceback.print_exc()
         
         return summary
@@ -1172,7 +1182,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         return recommendations
 
     def do_GET(self):
-        # ⚠️ AUTHENTICATION CHECK - All GET endpoints require Bearer Token
+        # âš ï¸ AUTHENTICATION CHECK - All GET endpoints require Bearer Token
         if not self._check_auth():
             self._send_auth_error()
             return
@@ -1246,7 +1256,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 })
             self.wfile.write(json.dumps({"jobs": jobs_list}).encode('utf-8'))
 
-        # ⭐ NEW: Endpoint untuk storage info & cleanup
+        # â­ NEW: Endpoint untuk storage info & cleanup
         elif path == '/storage/info':
             self._set_response()
             results_dir = get_results_dir()
@@ -1304,7 +1314,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 }
             }).encode('utf-8'))
 
-        # ⭐ NEW: Endpoint untuk manual cleanup
+        # â­ NEW: Endpoint untuk manual cleanup
         elif path == '/storage/cleanup':
             self._set_response()
             try:
@@ -1447,7 +1457,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 self._set_response(404)
                 self.wfile.write(json.dumps({"error": "Hasil tidak ditemukan atau job belum selesai"}).encode('utf-8'))
 
-        # ⭐ NEW: Endpoint untuk mendapatkan SEMUA files (PNG, CSV, JSON, dll)
+        # â­ NEW: Endpoint untuk mendapatkan SEMUA files (PNG, CSV, JSON, dll)
         elif path.startswith('/files/'):
             job_id = path.split('/')[-1]
             if job_id in RESULTS and RESULTS[job_id]["status"] in ["completed", "completed_with_warning"]:
@@ -1503,7 +1513,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 self._set_response(404)
                 self.wfile.write(json.dumps({"error": "Hasil tidak ditemukan atau job belum selesai"}).encode('utf-8'))
 
-        # ⭐ UPDATED: Endpoint untuk preview file (support semua tipe file)
+        # â­ UPDATED: Endpoint untuk preview file (support semua tipe file)
         elif path.startswith('/preview/'):
             parts = path.split('/')
             if len(parts) >= 4:
@@ -1522,7 +1532,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         }).encode('utf-8'))
                         return
                     
-                    # ⭐ Determine content type based on file extension
+                    # â­ Determine content type based on file extension
                     content_type = 'application/octet-stream'
                     cache_duration = 3600  # 1 hour default
                     
@@ -1552,7 +1562,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     elif file_name.endswith('.xml'):
                         content_type = 'application/xml; charset=utf-8'
                     
-                    # ⭐ Send response headers
+                    # â­ Send response headers
                     self.send_response(200)
                     self.send_header('Content-type', content_type)
                     self.send_header('Content-Length', str(file_size))
@@ -1560,7 +1570,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     self.send_header('Cache-Control', f'public, max-age={cache_duration}')
                     self.end_headers()
 
-                    # ⭐ Send file content in chunks (untuk large files)
+                    # â­ Send file content in chunks (untuk large files)
                     try:
                         with open(file_path, 'rb') as file:
                             chunk_size = 8192  # 8KB chunks
@@ -1648,7 +1658,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": "Endpoint tidak ditemukan"}).encode('utf-8'))
 
     def do_POST(self):
-        # ⚠️ AUTHENTICATION CHECK - All POST endpoints require Bearer Token
+        # âš ï¸ AUTHENTICATION CHECK - All POST endpoints require Bearer Token
         if not self._check_auth():
             self._send_auth_error()
             return
@@ -1782,10 +1792,10 @@ def run_hidrologi_process(job_id, params, result_dir):
                     # Force reload module to ensure latest code is used (clear cache)
                     import importlib
                     importlib.reload(main_weap_ml)
-                    print("✓ Module loaded successfully (with force reload)!\n")
+                    print("âœ“ Module loaded successfully (with force reload)!\n")
                     sys.stdout.flush()
                 except Exception as import_error:
-                    print(f"✗ ERROR loading main_weap_ml: {str(import_error)}")
+                    print(f"âœ— ERROR loading main_weap_ml: {str(import_error)}")
                     sys.stdout.flush()
                     raise
                 
@@ -1793,7 +1803,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                 RESULTS[job_id]["progress"] = 35
                 RESULTS[job_id]["message"] = "Fetching satellite data from Google Earth Engine..."
                 print("\n" + "="*80)
-                print("⚠️  CRITICAL SECTION: Google Earth Engine Data Fetching")
+                print("âš ï¸  CRITICAL SECTION: Google Earth Engine Data Fetching")
                 print("   This may take 2-5 minutes depending on date range")
                 print("   Progress will update after data is fetched")
                 print("="*80 + "\n")
@@ -1814,7 +1824,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                     )
                     
                 except Exception as main_error:
-                    print(f"\n✗ ERROR in main_weap_ml.main(): {str(main_error)}")
+                    print(f"\nâœ— ERROR in main_weap_ml.main(): {str(main_error)}")
                     print(f"Error type: {type(main_error).__name__}")
                     print("Traceback:")
                     traceback.print_exc()
@@ -1879,21 +1889,21 @@ def run_hidrologi_process(job_id, params, result_dir):
                         if file_name.endswith('.png'):
                             if file_size > 0:
                                 png_files.append(file_name)
-                                print(f"  ✅ PNG: {file_name} ({file_size:,} bytes)")
+                                print(f"  âœ… PNG: {file_name} ({file_size:,} bytes)")
                             else:
-                                print(f"  ⚠️  WARNING: {file_name} is empty (0 bytes)")
+                                print(f"  âš ï¸  WARNING: {file_name} is empty (0 bytes)")
                         elif file_name.endswith('.csv'):
                             if file_size > 0:
                                 csv_files.append(file_name)
-                                print(f"  ✅ CSV: {file_name} ({file_size:,} bytes)")
+                                print(f"  âœ… CSV: {file_name} ({file_size:,} bytes)")
                             else:
-                                print(f"  ⚠️  WARNING: {file_name} is empty (0 bytes)")
+                                print(f"  âš ï¸  WARNING: {file_name} is empty (0 bytes)")
                         elif file_name.endswith('.json'):
                             if file_size > 0:
                                 json_files.append(file_name)
-                                print(f"  ✅ JSON: {file_name} ({file_size:,} bytes)")
+                                print(f"  âœ… JSON: {file_name} ({file_size:,} bytes)")
                             else:
-                                print(f"  ⚠️  WARNING: {file_name} is empty (0 bytes)")
+                                print(f"  âš ï¸  WARNING: {file_name} is empty (0 bytes)")
                 
                 # Check for missing expected files
                 print(f"\n{'='*80}")
@@ -1905,11 +1915,11 @@ def run_hidrologi_process(job_id, params, result_dir):
                 missing_json = set(expected_files['json']) - set(json_files)
                 
                 if missing_png:
-                    print(f"⚠️  Missing PNG files: {', '.join(missing_png)}")
+                    print(f"âš ï¸  Missing PNG files: {', '.join(missing_png)}")
                 if missing_csv:
-                    print(f"⚠️  Missing CSV files: {', '.join(missing_csv)}")
+                    print(f"âš ï¸  Missing CSV files: {', '.join(missing_csv)}")
                 if missing_json:
-                    print(f"⚠️  Missing JSON files: {', '.join(missing_json)}")
+                    print(f"âš ï¸  Missing JSON files: {', '.join(missing_json)}")
                 
                 print(f"\n{'='*80}")
                 print(f"Summary - Files generated:")
@@ -1934,7 +1944,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                     RESULTS[job_id]["error"] = "Tidak ada file output yang tergenerate"
                     RESULTS[job_id]["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     RESULTS[job_id]["progress"] = 100
-                    print("❌ ERROR: No files generated")
+                    print("âŒ ERROR: No files generated")
                 elif not png_files or missing_info:
                     # Jika ada file hilang atau PNG tidak ada, beri warning
                     RESULTS[job_id]["status"] = "completed_with_warning"
@@ -1965,7 +1975,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                         "expected_json": len(expected_files['json'])
                     }
                     RESULTS[job_id]["progress"] = 100
-                    print(f"⚠️  WARNING: {warning_msg}")
+                    print(f"âš ï¸  WARNING: {warning_msg}")
                 else:
                     # Semua file berhasil dibuat
                     RESULTS[job_id]["status"] = "completed"
@@ -1983,14 +1993,14 @@ def run_hidrologi_process(job_id, params, result_dir):
                         "expected_json": len(expected_files['json'])
                     }
                     RESULTS[job_id]["progress"] = 100
-                    print(f"✅ SUCCESS: All expected files generated!")
+                    print(f"âœ… SUCCESS: All expected files generated!")
                     print(f"   PNG: {len(png_files)}/{len(expected_files['png'])}")
                     print(f"   CSV: {len(csv_files)}/{len(expected_files['csv'])}")
                     print(f"   JSON: {len(json_files)}/{len(expected_files['json'])}")
                     
             except TimeoutError as te:
                 print(f"\n{'='*80}")
-                print(f"⏱️  TIMEOUT ERROR: Process exceeded maximum time limit")
+                print(f"â±ï¸  TIMEOUT ERROR: Process exceeded maximum time limit")
                 print(f"{'='*80}\n")
                 print(f"Error: {str(te)}")
                 print(f"\nThis usually means:")
@@ -2028,39 +2038,39 @@ def run_hidrologi_process(job_id, params, result_dir):
                 error_type = type(e).__name__
                 
                 print(f"\n{'='*80}")
-                print(f"❌ ERROR saat menjalankan proses")
+                print(f"âŒ ERROR saat menjalankan proses")
                 print(f"{'='*80}\n")
                 print(f"Error Type: {error_type}")
                 print(f"Error Message: {error_msg}")
                 
                 # Detect common error patterns
                 if "ee.data.authenticateViaPrivateKey" in error_msg or "credentials" in error_msg.lower():
-                    print(f"\n🔐 AUTHENTICATION ERROR DETECTED")
+                    print(f"\nðŸ” AUTHENTICATION ERROR DETECTED")
                     print(f"This is likely a Google Earth Engine authentication issue:")
                     print(f"  1. Check if gee-credentials.json exists and is valid")
                     print(f"  2. Verify service account email in .env.production")
                     print(f"  3. Ensure GEE project ID is correct")
                     print(f"  4. Check if service account has Earth Engine API enabled")
                 elif "429" in error_msg or "quota" in error_msg.lower():
-                    print(f"\n⚠️  QUOTA ERROR DETECTED")
+                    print(f"\nâš ï¸  QUOTA ERROR DETECTED")
                     print(f"Google Earth Engine quota exceeded:")
                     print(f"  1. Wait a few minutes before trying again")
                     print(f"  2. Reduce date range")
                     print(f"  3. Check GEE project quotas")
                 elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
-                    print(f"\n⏱️  TIMEOUT ERROR DETECTED")
+                    print(f"\nâ±ï¸  TIMEOUT ERROR DETECTED")
                     print(f"Request to Google Earth Engine timed out:")
                     print(f"  1. Try reducing date range")
                     print(f"  2. Check internet connectivity")
                     print(f"  3. Try again later")
                 elif "memory" in error_msg.lower() or "memoryerror" in error_type.lower():
-                    print(f"\n💾 MEMORY ERROR DETECTED")
+                    print(f"\nðŸ’¾ MEMORY ERROR DETECTED")
                     print(f"Insufficient memory to complete operation:")
                     print(f"  1. Reduce date range")
                     print(f"  2. Check server memory availability")
                     print(f"  3. Restart the API service")
                 else:
-                    print(f"\n❓ UNKNOWN ERROR")
+                    print(f"\nâ“ UNKNOWN ERROR")
                     print(f"Please check the full error log for details")
                 
                 print(f"{'='*80}\n")
@@ -2148,20 +2158,20 @@ def run_server(port=8000, host='127.0.0.1'):
     
     # Load existing jobs dari disk
     print("="*80)
-    print("🔄 LOADING EXISTING JOBS FROM DISK")
+    print("ðŸ”„ LOADING EXISTING JOBS FROM DISK")
     print("="*80)
     load_existing_jobs()
 
     print("="*80)
-    print("🌊 API SERVER HIDROLOGI ML")
+    print("ðŸŒŠ API SERVER HIDROLOGI ML")
     print("="*80)
-    print(f"🔍 Mencoba start server di port {port}...")
+    print(f"ðŸ” Mencoba start server di port {port}...")
     print(f"Server akan berjalan di: http://localhost:{port}")
-    print("\n� AUTHENTICATION:")
+    print("\nï¿½ AUTHENTICATION:")
     print(f"  Bearer Token: {'Enabled' if CONFIG_LOADED else 'Enabled (using default)'}")
     print(f"  Token: {'*' * 20}...{config.API_TOKEN[-4:] if CONFIG_LOADED and len(config.API_TOKEN) > 4 else 'change_this'}")
-    print(f"  ⚠️  All requests MUST include: Authorization: Bearer YOUR_TOKEN")
-    print("\n�📋 ENDPOINT TERSEDIA:")
+    print(f"  âš ï¸  All requests MUST include: Authorization: Bearer YOUR_TOKEN")
+    print("\nï¿½ðŸ“‹ ENDPOINT TERSEDIA:")
     print(f"  POST   /generate                    - Mulai proses perhitungan baru")
     print(f"  GET    /status/<job_id>             - Cek status job")
     print(f"  GET    /jobs                        - Lihat semua job")
@@ -2169,34 +2179,34 @@ def run_server(port=8000, host='127.0.0.1'):
     print(f"  GET    /summary/<job_id>            - Ringkasan hasil (TEXT)")
     print(f"  GET    /logs/<job_id>               - Log lengkap semua output (FULL SUMMARY)")
     print(f"  GET    /images/<job_id>             - Daftar file PNG/gambar saja")
-    print(f"  GET    /files/<job_id>              - ⭐ Daftar SEMUA files (PNG, CSV, JSON)")
-    print(f"  GET    /preview/<job_id>/<file>     - ⭐ Preview file (PNG, CSV, JSON, TXT, PDF)")
+    print(f"  GET    /files/<job_id>              - â­ Daftar SEMUA files (PNG, CSV, JSON)")
+    print(f"  GET    /preview/<job_id>/<file>     - â­ Preview file (PNG, CSV, JSON, TXT, PDF)")
     print(f"  GET    /download/<job_id>/<file>    - Download file hasil")
-    print(f"  GET    /storage/info                - 🧹 Info storage & old jobs (>30 days)")
-    print(f"  GET    /storage/cleanup             - 🧹 Manual cleanup old jobs")
-    print("\n📊 FITUR BARU & PERBAIKAN:")
-    print("  ✅ Validasi ukuran file PNG (tidak boleh 0 bytes)")
-    print("  ✅ Delay 2 detik setelah proses untuk flush disk")
-    print("  ✅ Logging LENGKAP semua output ke file process.log")
-    print("  ✅ Endpoint /logs/<job_id> untuk mendapatkan SEMUA summary text")
-    print("  ✅ Error handling yang lebih baik")
-    print("  ✅ Capture stdout & stderr dengan flush otomatis")
-    print("  ⭐ Endpoint /files/<job_id> untuk list SEMUA files (PNG, CSV, JSON)")
-    print("  ⭐ Preview support untuk: PNG, JPG, CSV, JSON, TXT, PDF, HTML, XML")
-    print("  ⭐ Auto-sorting files berdasarkan prioritas display")
-    print("  ⭐ File size info (bytes, KB, MB)")
-    print("  🧹 Auto-cleanup: Job files deleted after 30 days (saves VPS storage)")
-    print("\n🆕 OUTPUT FILES TERBARU:")
-    print("  📊 PNG (6 files): Dashboard, Enhanced, WaterBalance, Morphometry,")
+    print(f"  GET    /storage/info                - ðŸ§¹ Info storage & old jobs (>30 days)")
+    print(f"  GET    /storage/cleanup             - ðŸ§¹ Manual cleanup old jobs")
+    print("\nðŸ“Š FITUR BARU & PERBAIKAN:")
+    print("  âœ… Validasi ukuran file PNG (tidak boleh 0 bytes)")
+    print("  âœ… Delay 2 detik setelah proses untuk flush disk")
+    print("  âœ… Logging LENGKAP semua output ke file process.log")
+    print("  âœ… Endpoint /logs/<job_id> untuk mendapatkan SEMUA summary text")
+    print("  âœ… Error handling yang lebih baik")
+    print("  âœ… Capture stdout & stderr dengan flush otomatis")
+    print("  â­ Endpoint /files/<job_id> untuk list SEMUA files (PNG, CSV, JSON)")
+    print("  â­ Preview support untuk: PNG, JPG, CSV, JSON, TXT, PDF, HTML, XML")
+    print("  â­ Auto-sorting files berdasarkan prioritas display")
+    print("  â­ File size info (bytes, KB, MB)")
+    print("  ðŸ§¹ Auto-cleanup: Job files deleted after 30 days (saves VPS storage)")
+    print("\nðŸ†• OUTPUT FILES TERBARU:")
+    print("  ðŸ“Š PNG (6 files): Dashboard, Enhanced, WaterBalance, Morphometry,")
     print("                    Morphology-Ecology, Baseline Comparison")
-    print("  📄 CSV (3 files): Complete Results, Monthly WaterBalance, Prediksi 30 Hari")
-    print("  📋 JSON (4 files): WaterBalance Validation, Model Validation,")
+    print("  ðŸ“„ CSV (3 files): Complete Results, Monthly WaterBalance, Prediksi 30 Hari")
+    print("  ðŸ“‹ JSON (4 files): WaterBalance Validation, Model Validation,")
     print("                     Baseline Comparison, Model Validation Report")
-    print("\n⏰ FILE RETENTION POLICY:")
-    print("  📌 Job results are automatically deleted after 30 days")
-    print("  📌 Download important results before expiration")
-    print("  📌 Cleanup runs automatically on server startup")
-    print("\n💡 CARA PENGGUNAAN:")
+    print("\nâ° FILE RETENTION POLICY:")
+    print("  ðŸ“Œ Job results are automatically deleted after 30 days")
+    print("  ðŸ“Œ Download important results before expiration")
+    print("  ðŸ“Œ Cleanup runs automatically on server startup")
+    print("\nðŸ’¡ CARA PENGGUNAAN:")
     print("  1. POST ke /generate dengan JSON: {longitude, latitude, start, end}")
     print("  2. Dapatkan job_id dari response")
     print("  3. Polling /status/<job_id> untuk cek progress")
@@ -2215,25 +2225,25 @@ def run_server(port=8000, host='127.0.0.1'):
     
     try:
         with socketserver.TCPServer((host, port), handler) as httpd:
-            print(f"✅ Server berhasil started di http://{host}:{port}")
+            print(f"âœ… Server berhasil started di http://{host}:{port}")
             if CONFIG_LOADED:
-                print(f"🌍 Environment: {config.environment.upper()}")
-                print(f"📊 Debug Mode: {config.DEBUG}")
-                print(f"📁 Results Dir: {config.RESULTS_DIR}")
-            print(f"📡 Listening for requests...\n")
+                print(f"ðŸŒ Environment: {config.environment.upper()}")
+                print(f"ðŸ“Š Debug Mode: {config.DEBUG}")
+                print(f"ðŸ“ Results Dir: {config.RESULTS_DIR}")
+            print(f"ðŸ“¡ Listening for requests...\n")
             try:
                 httpd.serve_forever()
             except KeyboardInterrupt:
-                print("\n\n🛑 Server dihentikan oleh user")
+                print("\n\nðŸ›‘ Server dihentikan oleh user")
                 pass
 
             httpd.server_close()
-            print("✅ Server berhasil dihentikan")
+            print("âœ… Server berhasil dihentikan")
     except OSError as e:
         # Check for "Address already in use" error (works on both Windows and Linux)
         if e.errno == 98 or (hasattr(e, 'winerror') and e.winerror == 10048):  # Port already in use
-            print(f"\n❌ ERROR: Port {port} sudah digunakan!")
-            print(f"\n💡 SOLUSI:")
+            print(f"\nâŒ ERROR: Port {port} sudah digunakan!")
+            print(f"\nðŸ’¡ SOLUSI:")
             print(f"   1. Hentikan proses yang menggunakan port {port}")
             if os.name == 'nt':  # Windows
                 print(f"      Cek dengan: netstat -ano | findstr :{port}")
@@ -2246,7 +2256,7 @@ def run_server(port=8000, host='127.0.0.1'):
             print(f"      python api_server.py 8001")
             print(f"\n   3. Atau tunggu beberapa detik dan coba lagi")
         else:
-            print(f"\n❌ ERROR: {str(e)}")
+            print(f"\nâŒ ERROR: {str(e)}")
             raise
 
 if __name__ == "__main__":
@@ -2264,19 +2274,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         try:
             port = int(sys.argv[1])
-            print(f"✅ Using port from command line: {port}")
+            print(f"âœ… Using port from command line: {port}")
         except ValueError:
-            print(f"⚠️  Port tidak valid: {sys.argv[1]}, menggunakan port {port}")
+            print(f"âš ï¸  Port tidak valid: {sys.argv[1]}, menggunakan port {port}")
     
     if len(sys.argv) > 2:
         host = sys.argv[2]
-        print(f"✅ Using host from command line: {host}")
+        print(f"âœ… Using host from command line: {host}")
     
     run_server(port, host)
-
-
-
-
-
-
-
