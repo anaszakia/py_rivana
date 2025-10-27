@@ -19,36 +19,36 @@ class Config:
         self._load_env_file()
         
         # API Configuration
-        self.API_HOST = os.getenv('API_HOST', '127.0.0.1')
+        self.API_HOST = self._clean_value(os.getenv('API_HOST', '127.0.0.1'))
         self.API_PORT = int(os.getenv('API_PORT', '8000'))
-        self.DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+        self.DEBUG = self._clean_value(os.getenv('DEBUG', 'False')).lower() == 'true'
         
         # Paths
         self.RESULTS_DIR = self._get_path('RESULTS_DIR', 'results')
         self.TEMP_DIR = self._get_path('TEMP_DIR', 'temp')
         
         # Earth Engine
-        self.EE_AUTHENTICATED = os.getenv('EE_AUTHENTICATED', 'True').lower() == 'true'
+        self.EE_AUTHENTICATED = self._clean_value(os.getenv('EE_AUTHENTICATED', 'True')).lower() == 'true'
         
-        # Security
-        self.SECRET_KEY = os.getenv('SECRET_KEY', 'default_secret_key_CHANGE_IN_PRODUCTION')
-        self.API_TOKEN = os.getenv('API_TOKEN', 'rivana_ml_2024_secure_token_change_this')  # Bearer Token for API authentication
+        # Security - Clean quotes from token values
+        self.SECRET_KEY = self._clean_value(os.getenv('SECRET_KEY', 'default_secret_key_CHANGE_IN_PRODUCTION'))
+        self.API_TOKEN = self._clean_value(os.getenv('API_TOKEN', 'dev_token_12345'))  # Bearer Token for API authentication
         
         # Limits
         self.MAX_CONCURRENT_JOBS = int(os.getenv('MAX_CONCURRENT_JOBS', '2'))
         self.JOB_TIMEOUT = int(os.getenv('JOB_TIMEOUT', '1800'))
         
         # Logging
-        self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG' if self.DEBUG else 'INFO')
-        self.LOG_FILE = os.getenv('LOG_FILE', 'logs/api.log')
+        self.LOG_LEVEL = self._clean_value(os.getenv('LOG_LEVEL', 'DEBUG' if self.DEBUG else 'INFO'))
+        self.LOG_FILE = self._clean_value(os.getenv('LOG_FILE', 'logs/api.log'))
         
         # Performance
-        self.ENABLE_CORS = os.getenv('ENABLE_CORS', 'True').lower() == 'true'
-        self.ENABLE_CACHE = os.getenv('ENABLE_CACHE', 'False').lower() == 'true'
+        self.ENABLE_CORS = self._clean_value(os.getenv('ENABLE_CORS', 'True')).lower() == 'true'
+        self.ENABLE_CACHE = self._clean_value(os.getenv('ENABLE_CACHE', 'False')).lower() == 'true'
         self.CACHE_TTL = int(os.getenv('CACHE_TTL', '300'))
         
         # Rate Limiting
-        self.RATE_LIMIT_ENABLED = os.getenv('RATE_LIMIT_ENABLED', 'False').lower() == 'true'
+        self.RATE_LIMIT_ENABLED = self._clean_value(os.getenv('RATE_LIMIT_ENABLED', 'False')).lower() == 'true'
         self.RATE_LIMIT_REQUESTS = int(os.getenv('RATE_LIMIT_REQUESTS', '100'))
         self.RATE_LIMIT_PERIOD = int(os.getenv('RATE_LIMIT_PERIOD', '60'))
         
@@ -83,6 +83,17 @@ class Config:
             # Silently skip - use environment variables or defaults
             # No print to reduce overhead
             pass
+    
+    def _clean_value(self, value: str) -> str:
+        """Remove quotes from environment variable values"""
+        if not value:
+            return value
+        # Remove surrounding quotes (single or double)
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or \
+           (value.startswith("'") and value.endswith("'")):
+            return value[1:-1]
+        return value
     
     def _get_path(self, env_var: str, default: str) -> str:
         """Get path from environment, handle relative/absolute paths"""
