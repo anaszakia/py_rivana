@@ -915,9 +915,22 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             control_scale=True
         )
         
-        # Add alternative basemaps
-        folium.TileLayer('Stamen Terrain', name='Terrain').add_to(m)
-        folium.TileLayer('CartoDB positron', name='CartoDB Light').add_to(m)
+        # Add alternative basemaps dengan attribution yang benar
+        folium.TileLayer(
+            tiles='https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.jpg',
+            attr='Map tiles by Stadia Maps, under CC BY 4.0. Data by OpenStreetMap, under ODbL.',
+            name='Terrain',
+            overlay=False,
+            control=True
+        ).add_to(m)
+        
+        folium.TileLayer(
+            tiles='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            attr='© OpenStreetMap contributors © CARTO',
+            name='CartoDB Light',
+            overlay=False,
+            control=True
+        ).add_to(m)
         
         # ========== 3. TAMBAHKAN LAYER GEE KE FOLIUM ==========
         
