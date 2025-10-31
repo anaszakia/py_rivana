@@ -859,6 +859,353 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
     return morphology_data
 
 # ==========================================
+# RIVER NETWORK MAPPING (METODE 1: GEE + FOLIUM)
+# ==========================================
+def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
+    """
+    Buat peta aliran sungai interaktif dari Google Earth Engine
+    
+    Args:
+        lon: Longitude koordinat analisis
+        lat: Latitude koordinat analisis
+        output_dir: Direktori output untuk menyimpan peta
+        buffer_size: Ukuran buffer area analisis (meter), default 10km
+    
+    Returns:
+        dict: Informasi peta yang dibuat
+    """
+    print_section("MEMBUAT PETA ALIRAN SUNGAI", "🌊")
+    
+    try:
+        import io
+        from PIL import Image
+        
+        lokasi = ee.Geometry.Point([lon, lat])
+        buffer_zone = lokasi.buffer(buffer_size)
+        
+        print(f"\n📍 Lokasi Analisis: {lat:.4f}°N, {lon:.4f}°E")
+        print(f"📏 Area Buffer: {buffer_size/1000:.1f} km")
+        
+        # ========== 1. AMBIL DATA HIDROLOGI DARI GEE ==========
+        print("\n🔍 Mengambil data jaringan sungai dari Google Earth Engine...")
+        
+        # Dataset 1: HydroSHEDS - Flow Direction & Accumulation
+        # Flow Accumulation menunjukkan akumulasi aliran (semakin besar = sungai utama)
+        flow_acc = ee.Image("WWF/HydroSHEDS/03ACC").clip(buffer_zone)
+        
+        # Dataset 2: JRC Global Surface Water - Permanent Water Bodies
+        # Menunjukkan badan air permanen (sungai, danau, waduk)
+        water_occurrence = ee.Image('JRC/GSW1_4/GlobalSurfaceWater') \
+            .select('occurrence') \
+            .clip(buffer_zone)
+        
+        # Dataset 3: DEM untuk konteks topografi
+        dem = ee.Image('USGS/SRTMGL1_003').clip(buffer_zone)
+        
+        print("   ✅ Data hidrologi berhasil diambil dari GEE")
+        
+        # ========== 2. BUAT PETA INTERAKTIF DENGAN FOLIUM ==========
+        print("\n🗺️ Membuat peta interaktif...")
+        
+        # Inisialisasi peta dengan center di lokasi analisis
+        m = folium.Map(
+            location=[lat, lon],
+            zoom_start=12,
+            tiles='OpenStreetMap',
+            control_scale=True
+        )
+        
+        # Add alternative basemaps
+        folium.TileLayer('Stamen Terrain', name='Terrain').add_to(m)
+        folium.TileLayer('CartoDB positron', name='CartoDB Light').add_to(m)
+        
+        # ========== 3. TAMBAHKAN LAYER GEE KE FOLIUM ==========
+        
+        # Helper function untuk add EE layer ke Folium
+        def add_ee_layer(self, ee_image_object, vis_params, name, show=True, opacity=1):
+            map_id_dict = ee.Image(ee_image_object).getMapId(vis_params)
+            folium.raster_layers.TileLayer(
+                tiles=map_id_dict['tile_fetcher'].url_format,
+                attr='Google Earth Engine',
+                name=name,
+                overlay=True,
+                control=True,
+                show=show,
+                opacity=opacity
+            ).add_to(self)
+        
+        # Monkey patch method ke folium.Map
+        folium.Map.add_ee_layer = add_ee_layer
+        
+        # Layer 1: DEM (Topografi)
+        dem_vis = {
+            'min': 0,
+            'max': 3000,
+            'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
+        }
+        m.add_ee_layer(dem, dem_vis, 'Elevasi (DEM)', show=False, opacity=0.6)
+        
+        # Layer 2: Flow Accumulation (Jaringan Sungai)
+        # Log scale untuk visualisasi yang lebih baik
+        flow_vis = {
+            'min': 100,
+            'max': 10000,
+            'palette': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
+        }
+        m.add_ee_layer(flow_acc, flow_vis, 'Akumulasi Aliran', show=True, opacity=0.7)
+        
+        # Layer 3: Water Occurrence (Badan Air Permanen)
+        water_vis = {
+            'min': 0,
+            'max': 100,
+            'palette': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
+        }
+        m.add_ee_layer(water_occurrence, water_vis, 'Kejadian Air (%)', show=True, opacity=0.6)
+        
+        # ========== 4. TAMBAHKAN MARKER & INFORMASI ==========
+        
+        # Marker lokasi analisis
+        folium.Marker(
+            [lat, lon],
+            popup=folium.Popup(
+                f"<b>📍 Titik Analisis</b><br>"
+                f"Koordinat: {lat:.4f}°N, {lon:.4f}°E<br>"
+                f"Buffer: {buffer_size/1000:.1f} km",
+                max_width=300
+            ),
+            tooltip="Lokasi Analisis",
+            icon=folium.Icon(color='red', icon='map-pin', prefix='fa')
+        ).add_to(m)
+        
+        # Circle buffer area
+        folium.Circle(
+            location=[lat, lon],
+            radius=buffer_size,
+            color='red',
+            fill=True,
+            fillColor='red',
+            fillOpacity=0.1,
+            popup=f'Area Analisis ({buffer_size/1000:.1f} km radius)',
+            tooltip='Area Buffer Analisis'
+        ).add_to(m)
+        
+        # ========== 5. TAMBAHKAN LEGEND & CONTROLS ==========
+        
+        # Layer control
+        folium.LayerControl(position='topright', collapsed=False).add_to(m)
+        
+        # Add legend HTML
+        legend_html = '''
+        <div style="position: fixed; 
+                    bottom: 50px; left: 50px; width: 280px; height: auto; 
+                    background-color: white; border:2px solid grey; z-index:9999; 
+                    font-size:12px; padding: 10px; border-radius: 5px;">
+        <h4 style="margin-top:0; margin-bottom:10px; text-align:center;">
+            🌊 LEGENDA PETA SUNGAI
+        </h4>
+        <p style="margin:5px 0;"><b>📍 Marker Merah:</b> Titik Analisis</p>
+        <p style="margin:5px 0;"><b>🔵 Garis Biru Tua:</b> Aliran Sungai Utama</p>
+        <p style="margin:5px 0;"><b>🔷 Biru Muda:</b> Anak Sungai</p>
+        <p style="margin:5px 0;"><b>💧 Intensitas Warna:</b> Akumulasi Aliran</p>
+        <hr style="margin:8px 0;">
+        <p style="margin:5px 0; font-size:10px;">
+            <i>Data: Google Earth Engine<br>
+            HydroSHEDS & JRC Global Surface Water</i>
+        </p>
+        </div>
+        '''
+        m.get_root().html.add_child(folium.Element(legend_html))
+        
+        # Add title
+        title_html = '''
+        <div style="position: fixed; 
+                    top: 10px; left: 50%; transform: translateX(-50%);
+                    z-index:9999; background-color: rgba(255,255,255,0.9);
+                    border:2px solid #0066cc; border-radius: 8px;
+                    padding: 10px 20px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3);">
+            <h3 style="margin:0; color:#0066cc; text-align:center;">
+                🗺️ PETA JARINGAN ALIRAN SUNGAI
+            </h3>
+            <p style="margin:5px 0; text-align:center; font-size:12px;">
+                Koordinat: {:.4f}°N, {:.4f}°E
+            </p>
+        </div>
+        '''.format(lat, lon)
+        m.get_root().html.add_child(folium.Element(title_html))
+        
+        # ========== 6. SIMPAN PETA ==========
+        
+        # Save sebagai HTML (interaktif)
+        html_path = os.path.join(output_dir, 'peta_aliran_sungai_interaktif.html')
+        m.save(html_path)
+        print(f"\n✅ Peta HTML interaktif tersimpan: {os.path.basename(html_path)}")
+        
+        # ========== 7. EXPORT SEBAGAI PNG (SCREENSHOT) ==========
+        print("\n📸 Membuat screenshot PNG dari peta...")
+        
+        try:
+            # Coba gunakan selenium untuk screenshot
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                
+                chrome_options = Options()
+                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--no-sandbox')
+                chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--window-size=1920,1080')
+                
+                driver = webdriver.Chrome(options=chrome_options)
+                driver.get(f'file:///{os.path.abspath(html_path)}')
+                
+                import time
+                time.sleep(3)  # Wait for map to load
+                
+                png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
+                driver.save_screenshot(png_path)
+                driver.quit()
+                
+                print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
+                png_created = True
+                
+            except ImportError:
+                print("⚠️  Selenium tidak tersedia, mencoba metode alternatif...")
+                png_created = False
+                
+            # Alternatif: Buat visualisasi static dengan matplotlib
+            if not png_created:
+                print("📊 Membuat visualisasi statis dengan matplotlib...")
+                
+                # Get flow accumulation data
+                flow_data = flow_acc.sampleRectangle(region=buffer_zone, defaultValue=0)
+                flow_array = np.array(flow_data.get('b1').getInfo())
+                
+                # Create static visualization
+                fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
+                
+                # Plot flow accumulation
+                im = ax.imshow(np.log10(flow_array + 1), cmap='Blues', aspect='auto')
+                
+                # Add colorbar
+                cbar = plt.colorbar(im, ax=ax, label='Log10(Flow Accumulation)')
+                
+                # Add title and labels
+                ax.set_title(f'Peta Jaringan Sungai\n{lat:.4f}°N, {lon:.4f}°E', 
+                           fontsize=14, fontweight='bold')
+                ax.set_xlabel('Longitude (relative)', fontsize=10)
+                ax.set_ylabel('Latitude (relative)', fontsize=10)
+                
+                # Add marker for analysis point (approximate center)
+                center_x, center_y = flow_array.shape[1] // 2, flow_array.shape[0] // 2
+                ax.plot(center_x, center_y, 'r*', markersize=20, 
+                       label='Titik Analisis', markeredgecolor='white', markeredgewidth=1.5)
+                ax.legend(loc='upper right')
+                
+                # Add grid
+                ax.grid(True, alpha=0.3)
+                
+                # Save PNG
+                png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
+                plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white')
+                plt.close()
+                
+                print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
+                png_created = True
+                
+        except Exception as png_error:
+            print(f"⚠️  Tidak dapat membuat PNG: {str(png_error)}")
+            print("   Peta HTML tetap tersedia dan dapat dibuka di browser")
+            png_path = None
+            png_created = False
+        
+        # ========== 8. EXTRACT INFORMASI SUNGAI ==========
+        print("\n📊 Menganalisis karakteristik jaringan sungai...")
+        
+        # Hitung statistik flow accumulation
+        flow_stats = flow_acc.reduceRegion(
+            reducer=ee.Reducer.mean().combine(
+                ee.Reducer.minMax(), '', True
+            ),
+            geometry=buffer_zone,
+            scale=90,
+            maxPixels=1e9
+        ).getInfo()
+        
+        # Hitung water occurrence
+        water_stats = water_occurrence.reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=buffer_zone,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+        
+        river_info = {
+            'location': {
+                'latitude': float(lat),
+                'longitude': float(lon),
+                'buffer_radius_km': float(buffer_size / 1000)
+            },
+            'flow_characteristics': {
+                'mean_accumulation': float(flow_stats.get('b1_mean', 0)),
+                'max_accumulation': float(flow_stats.get('b1_max', 0)),
+                'min_accumulation': float(flow_stats.get('b1_min', 0)),
+                'description': 'Flow accumulation menunjukkan jumlah sel yang mengalir ke satu titik'
+            },
+            'water_occurrence': {
+                'mean_percentage': float(water_stats.get('occurrence', 0)),
+                'description': 'Persentase waktu area tertutup air (0-100%)'
+            },
+            'files_created': {
+                'html_map': os.path.basename(html_path),
+                'png_map': os.path.basename(png_path) if png_created else 'Not created',
+                'html_path_full': html_path,
+                'png_path_full': png_path if png_created else None
+            },
+            'data_sources': {
+                'flow_accumulation': 'WWF/HydroSHEDS/03ACC',
+                'water_occurrence': 'JRC/GSW1_4/GlobalSurfaceWater',
+                'elevation': 'USGS/SRTMGL1_003'
+            }
+        }
+        
+        # Simpan metadata
+        metadata_path = os.path.join(output_dir, 'peta_aliran_sungai_metadata.json')
+        safe_json_dump(river_info, metadata_path)
+        
+        print(f"\n{'='*80}")
+        print("📊 KARAKTERISTIK JARINGAN SUNGAI".center(80))
+        print(f"{'='*80}")
+        print(f"\n📍 Lokasi:")
+        print(f"   Koordinat: {lat:.4f}°N, {lon:.4f}°E")
+        print(f"   Area Analisis: {buffer_size/1000:.1f} km radius")
+        print(f"\n🌊 Akumulasi Aliran:")
+        print(f"   Rata-rata: {river_info['flow_characteristics']['mean_accumulation']:.0f} cells")
+        print(f"   Maksimum: {river_info['flow_characteristics']['max_accumulation']:.0f} cells")
+        print(f"   (Nilai tinggi = sungai utama, nilai rendah = anak sungai)")
+        print(f"\n💧 Kejadian Air:")
+        print(f"   Rata-rata: {river_info['water_occurrence']['mean_percentage']:.1f}%")
+        print(f"   (Persentase waktu area tertutup air)")
+        print(f"\n📁 File yang Dibuat:")
+        print(f"   ✅ {river_info['files_created']['html_map']} (Interaktif)")
+        if png_created:
+            print(f"   ✅ {river_info['files_created']['png_map']} (Gambar)")
+        print(f"   ✅ {os.path.basename(metadata_path)} (Metadata)")
+        print(f"\n{'='*80}")
+        
+        print(f"\n✅ Peta aliran sungai berhasil dibuat!")
+        print(f"   💡 TIP: Buka file HTML di browser untuk peta interaktif")
+        print(f"   💡 TIP: Zoom in/out dan toggle layer untuk eksplorasi detail")
+        
+        return river_info
+        
+    except Exception as e:
+        print(f"\n❌ ERROR saat membuat peta aliran sungai: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        print("\n⚠️  Analisis akan dilanjutkan tanpa peta sungai...")
+        return None
+
+# ==========================================
 # PRIORITAS 1: MODEL VALIDATOR (WAJIB!)
 # ==========================================
 class ModelValidator:
@@ -4970,6 +5317,9 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     # 1. Fetch Data
     df = fetch_gee_data(lon, lat, start, end)
     morphology_data = fetch_morphology_data(lon, lat, start, end)
+    
+    # ⭐ BUAT PETA ALIRAN SUNGAI (FITUR BARU)
+    river_map_info = create_river_network_map(lon, lat, output_dir=output_dir if output_dir else '.', buffer_size=10000)
     
     # ⭐ SAVE RAW GEE DATA TO CSV WITH METADATA
     print_section("MENYIMPAN DATA MENTAH GEE", "💾")

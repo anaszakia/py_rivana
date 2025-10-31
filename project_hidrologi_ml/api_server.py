@@ -26,31 +26,60 @@ API SERVER HIDROLOGI ML (RIVANA)
 
 Output Files Generated:
 -----------------------
-PNG Files (6):
+PNG Files (7-8):
   1. RIVANA_Dashboard.png - Main dashboard
   2. RIVANA_Enhanced_Dashboard.png - Enhanced visualization
   3. RIVANA_Water_Balance_Dashboard.png - Water balance analysis
   4. RIVANA_Morphometry_Summary.png - Morphology summary
   5. RIVANA_Morphology_Ecology_Dashboard.png - Morphology & ecology
   6. RIVANA_Baseline_Comparison.png - ML vs Traditional methods
+  7. peta_aliran_sungai.png - 🌊 NEW: River network map (static visualization)
+
+HTML Files (1):
+  1. peta_aliran_sungai_interaktif.html - 🗺️ NEW: Interactive river map
+     (Can be opened in browser, includes zoom, layer toggle, and markers)
 
 CSV Files (4):
   1. RIVANA_Hasil_Complete.csv - Complete simulation results
   2. RIVANA_Monthly_WaterBalance.csv - Monthly water balance
   3. RIVANA_Prediksi_30Hari.csv - 30-day rainfall & reservoir forecast
-  4. RIVANA_GEE_Raw_Data.csv - ⭐ NEW: Raw satellite data from Google Earth Engine
+  4. RIVANA_Data_GEE_Raw.csv - ⭐ Raw satellite data from Google Earth Engine
      (Columns: Date, Rainfall, Temperature, ET, Soil Moisture, NDVI, LST, etc.)
      Sorted by date for historical analysis
 
-JSON Files (4):
-  1. RIVANA_WaterBalance_Validation.json - Water balance validation (error â‰¤ 5%)
-  2. RIVANA_Model_Validation_Complete.json - NSE, RÂ², PBIAS, RMSE metrics
+JSON Files (6):
+  1. RIVANA_WaterBalance_Validation.json - Water balance validation (error ≤ 5%)
+  2. RIVANA_Model_Validation_Complete.json - NSE, R², PBIAS, RMSE metrics
   3. baseline_comparison.json - ML vs Traditional comparison results
   4. model_validation_report.json - Detailed validation report
+  5. peta_aliran_sungai_metadata.json - 🌊 NEW: River map metadata & characteristics
+  6. RIVANA_Data_GEE_Metadata.json - ⭐ GEE data sources & statistics
 
 Additional Files:
   - params.json - Input parameters
   - process.log - Complete execution log
+
+River Network Map Features:
+---------------------------
+🗺️ Interactive HTML Map:
+  - Multiple layers (DEM, Flow Accumulation, Water Occurrence)
+  - Zoom in/out functionality
+  - Toggle layer visibility
+  - Multiple basemaps (OpenStreetMap, Terrain, Light)
+  - Location marker and buffer circle
+  - Legend and title overlay
+
+📊 Static PNG Map:
+  - Flow accumulation visualization
+  - Analysis point marker
+  - Suitable for presentations and reports
+
+📋 Metadata JSON:
+  - Location coordinates
+  - Flow characteristics (mean, max, min accumulation)
+  - Water occurrence statistics
+  - Data sources information
+  - File paths
 """
 
 # Import pandas untuk summary (optional - akan dicek saat digunakan)
@@ -173,6 +202,10 @@ def load_existing_jobs():
         png_files = [f for f in os.listdir(job_dir) if f.endswith('.png')]
         csv_files = [f for f in os.listdir(job_dir) if f.endswith('.csv')]
         json_files = [f for f in os.listdir(job_dir) if f.endswith('.json') and f != 'params.json']
+        html_files = [f for f in os.listdir(job_dir) if f.endswith('.html')]  # 🌊 NEW: Detect HTML files
+        
+        # 🌊 Check for river map files
+        has_river_map = any('peta_aliran_sungai' in f for f in png_files + html_files + json_files)
         
         # Determine status based on files
         if len(png_files) > 0 or len(csv_files) > 0:
@@ -194,9 +227,17 @@ def load_existing_jobs():
                 "png": len(png_files),
                 "csv": len(csv_files),
                 "json": len(json_files),
+                "html": len(html_files),  # 🌊 NEW: HTML count
                 "png_files": png_files,
                 "csv_files": csv_files,
-                "json_files": json_files
+                "json_files": json_files,
+                "html_files": html_files  # 🌊 NEW: HTML files list
+            },
+            "river_map": {  # 🌊 NEW: River map info
+                "available": has_river_map,
+                "interactive_html": any('peta_aliran_sungai_interaktif.html' in f for f in html_files),
+                "static_png": any('peta_aliran_sungai.png' in f for f in png_files),
+                "metadata_json": any('peta_aliran_sungai_metadata.json' in f for f in json_files)
             },
             "progress": 100
         }
@@ -1517,6 +1558,196 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Hasil tidak ditemukan atau job belum selesai"}).encode('utf-8'))
 
         # â­ UPDATED: Endpoint untuk preview file (support semua tipe file)
+
+        # NEW: Endpoint khusus untuk River Network Map
+        elif path.startswith('/river-map/'):
+            job_id = path.split('/')[-1]
+            if job_id in RESULTS and RESULTS[job_id]["status"] in ["completed", "completed_with_warning"]:
+                result_dir = get_job_result_path(job_id)
+                
+                # Check for river map files
+                river_map_data = {
+                    "job_id": job_id,
+                    "available": False,
+                    "files": {},
+                    "metadata": None
+                }
+                
+                # Check for interactive HTML map
+                html_map = os.path.join(result_dir, 'peta_aliran_sungai_interaktif.html')
+                if os.path.exists(html_map) and os.path.getsize(html_map) > 0:
+                    river_map_data["available"] = True
+                    river_map_data["files"]["interactive_html"] = {
+                        "name": "peta_aliran_sungai_interaktif.html",
+                        "type": "html",
+                        "size": os.path.getsize(html_map),
+                        "size_kb": round(os.path.getsize(html_map) / 1024, 2),
+                        "download_url": f"/download/{job_id}/peta_aliran_sungai_interaktif.html",
+                        "preview_url": f"/preview/{job_id}/peta_aliran_sungai_interaktif.html",
+                        "description": "Interactive map with zoom, layers, and markers"
+                    }
+                
+                # Check for static PNG map
+                png_map = os.path.join(result_dir, 'peta_aliran_sungai.png')
+                if os.path.exists(png_map) and os.path.getsize(png_map) > 0:
+                    river_map_data["available"] = True
+                    river_map_data["files"]["static_png"] = {
+                        "name": "peta_aliran_sungai.png",
+                        "type": "png",
+                        "size": os.path.getsize(png_map),
+                        "size_kb": round(os.path.getsize(png_map) / 1024, 2),
+                        "download_url": f"/download/{job_id}/peta_aliran_sungai.png",
+                        "preview_url": f"/preview/{job_id}/peta_aliran_sungai.png",
+                        "description": "Static map for presentations and reports"
+                    }
+                
+                # Check for metadata JSON
+                metadata_file = os.path.join(result_dir, 'peta_aliran_sungai_metadata.json')
+                if os.path.exists(metadata_file) and os.path.getsize(metadata_file) > 0:
+                    try:
+                        with open(metadata_file, 'r', encoding='utf-8') as f:
+                            river_map_data["metadata"] = json.load(f)
+                        
+                        river_map_data["files"]["metadata_json"] = {
+                            "name": "peta_aliran_sungai_metadata.json",
+                            "type": "json",
+                            "size": os.path.getsize(metadata_file),
+                            "size_kb": round(os.path.getsize(metadata_file) / 1024, 2),
+                            "download_url": f"/download/{job_id}/peta_aliran_sungai_metadata.json",
+                            "preview_url": f"/preview/{job_id}/peta_aliran_sungai_metadata.json",
+                            "description": "River characteristics and statistics"
+                        }
+                    except Exception as e:
+                        print(f"Error loading river map metadata: {e}")
+                
+                # Add summary
+                if river_map_data["available"]:
+                    river_map_data["summary"] = {
+                        "status": "Available",
+                        "files_count": len(river_map_data["files"]),
+                        "has_interactive": "interactive_html" in river_map_data["files"],
+                        "has_static": "static_png" in river_map_data["files"],
+                        "has_metadata": "metadata_json" in river_map_data["files"]
+                    }
+                    
+                    # Add quick access to key metadata
+                    if river_map_data["metadata"]:
+                        river_map_data["quick_info"] = {
+                            "location": river_map_data["metadata"].get("location", {}),
+                            "flow_accumulation_mean": river_map_data["metadata"].get("flow_characteristics", {}).get("mean_accumulation", "N/A"),
+                            "water_occurrence_mean": river_map_data["metadata"].get("water_occurrence", {}).get("mean_percentage", "N/A"),
+                            "data_sources": list(river_map_data["metadata"].get("data_sources", {}).keys())
+                        }
+                else:
+                    river_map_data["summary"] = {
+                        "status": "Not Available",
+                        "message": "River map was not generated for this job"
+                    }
+                
+                self._set_response()
+                self.wfile.write(json.dumps(river_map_data).encode('utf-8'))
+            else:
+                self._set_response(404)
+                self.wfile.write(json.dumps({
+                    "error": "Job not found or not completed",
+                    "job_id": job_id
+                }).encode('utf-8'))
+
+
+        # NEW: Endpoint khusus untuk River Network Map
+        elif path.startswith('/river-map/'):
+            job_id = path.split('/')[-1]
+            if job_id in RESULTS and RESULTS[job_id]["status"] in ["completed", "completed_with_warning"]:
+                result_dir = get_job_result_path(job_id)
+                
+                # Check for river map files
+                river_map_data = {
+                    "job_id": job_id,
+                    "available": False,
+                    "files": {},
+                    "metadata": None
+                }
+                
+                # Check for interactive HTML map
+                html_map = os.path.join(result_dir, 'peta_aliran_sungai_interaktif.html')
+                if os.path.exists(html_map) and os.path.getsize(html_map) > 0:
+                    river_map_data["available"] = True
+                    river_map_data["files"]["interactive_html"] = {
+                        "name": "peta_aliran_sungai_interaktif.html",
+                        "type": "html",
+                        "size": os.path.getsize(html_map),
+                        "size_kb": round(os.path.getsize(html_map) / 1024, 2),
+                        "download_url": f"/download/{job_id}/peta_aliran_sungai_interaktif.html",
+                        "preview_url": f"/preview/{job_id}/peta_aliran_sungai_interaktif.html",
+                        "description": "Interactive map with zoom, layers, and markers"
+                    }
+                
+                # Check for static PNG map
+                png_map = os.path.join(result_dir, 'peta_aliran_sungai.png')
+                if os.path.exists(png_map) and os.path.getsize(png_map) > 0:
+                    river_map_data["available"] = True
+                    river_map_data["files"]["static_png"] = {
+                        "name": "peta_aliran_sungai.png",
+                        "type": "png",
+                        "size": os.path.getsize(png_map),
+                        "size_kb": round(os.path.getsize(png_map) / 1024, 2),
+                        "download_url": f"/download/{job_id}/peta_aliran_sungai.png",
+                        "preview_url": f"/preview/{job_id}/peta_aliran_sungai.png",
+                        "description": "Static map for presentations and reports"
+                    }
+                
+                # Check for metadata JSON
+                metadata_file = os.path.join(result_dir, 'peta_aliran_sungai_metadata.json')
+                if os.path.exists(metadata_file) and os.path.getsize(metadata_file) > 0:
+                    try:
+                        with open(metadata_file, 'r', encoding='utf-8') as f:
+                            river_map_data["metadata"] = json.load(f)
+                        
+                        river_map_data["files"]["metadata_json"] = {
+                            "name": "peta_aliran_sungai_metadata.json",
+                            "type": "json",
+                            "size": os.path.getsize(metadata_file),
+                            "size_kb": round(os.path.getsize(metadata_file) / 1024, 2),
+                            "download_url": f"/download/{job_id}/peta_aliran_sungai_metadata.json",
+                            "preview_url": f"/preview/{job_id}/peta_aliran_sungai_metadata.json",
+                            "description": "River characteristics and statistics"
+                        }
+                    except Exception as e:
+                        print(f"Error loading river map metadata: {e}")
+                
+                # Add summary
+                if river_map_data["available"]:
+                    river_map_data["summary"] = {
+                        "status": "Available",
+                        "files_count": len(river_map_data["files"]),
+                        "has_interactive": "interactive_html" in river_map_data["files"],
+                        "has_static": "static_png" in river_map_data["files"],
+                        "has_metadata": "metadata_json" in river_map_data["files"]
+                    }
+                    
+                    # Add quick access to key metadata
+                    if river_map_data["metadata"]:
+                        river_map_data["quick_info"] = {
+                            "location": river_map_data["metadata"].get("location", {}),
+                            "flow_accumulation_mean": river_map_data["metadata"].get("flow_characteristics", {}).get("mean_accumulation", "N/A"),
+                            "water_occurrence_mean": river_map_data["metadata"].get("water_occurrence", {}).get("mean_percentage", "N/A"),
+                            "data_sources": list(river_map_data["metadata"].get("data_sources", {}).keys())
+                        }
+                else:
+                    river_map_data["summary"] = {
+                        "status": "Not Available",
+                        "message": "River map was not generated for this job"
+                    }
+                
+                self._set_response()
+                self.wfile.write(json.dumps(river_map_data).encode('utf-8'))
+            else:
+                self._set_response(404)
+                self.wfile.write(json.dumps({
+                    "error": "Job not found or not completed",
+                    "job_id": job_id
+                }).encode('utf-8'))
+
         elif path.startswith('/preview/'):
             parts = path.split('/')
             if len(parts) >= 4:

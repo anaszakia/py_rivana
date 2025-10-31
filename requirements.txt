@@ -23,3 +23,7 @@ python-dotenv>=1.0.0
 
 # Optional: Performance
 # gunicorn>=21.2.0  # For production WSGI server
+
+# Optional: River Map PNG Export (install jika ingin export PNG dari peta interaktif)
+selenium>=4.0.0  # For HTML to PNG conversion
+pillow>=10.0.0   # Image processing
