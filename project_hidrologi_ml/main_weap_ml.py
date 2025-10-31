@@ -889,20 +889,44 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         # ========== 1. AMBIL DATA HIDROLOGI DARI GEE ==========
         print("\n🔍 Mengambil data jaringan sungai dari Google Earth Engine...")
         
-        # Dataset 1: HydroSHEDS - Flow Direction & Accumulation
-        # Flow Accumulation menunjukkan akumulasi aliran (semakin besar = sungai utama)
-        flow_acc = ee.Image("WWF/HydroSHEDS/03ACC").clip(buffer_zone)
-        
-        # Dataset 2: JRC Global Surface Water - Permanent Water Bodies
+        # Dataset 1: JRC Global Surface Water - Permanent Water Bodies
         # Menunjukkan badan air permanen (sungai, danau, waduk)
-        water_occurrence = ee.Image('JRC/GSW1_4/GlobalSurfaceWater') \
-            .select('occurrence') \
-            .clip(buffer_zone)
+        try:
+            water_occurrence = ee.Image('JRC/GSW1_4/GlobalSurfaceWater') \
+                .select('occurrence') \
+                .clip(buffer_zone)
+            print("   ✅ Data JRC Global Surface Water berhasil diambil")
+        except Exception as e:
+            print(f"   ⚠️ Error loading JRC GSW: {e}")
+            water_occurrence = None
         
-        # Dataset 3: DEM untuk konteks topografi
-        dem = ee.Image('USGS/SRTMGL1_003').clip(buffer_zone)
+        # Dataset 2: DEM untuk konteks topografi dan flow calculation
+        try:
+            dem = ee.Image('USGS/SRTMGL1_003').clip(buffer_zone)
+            print("   ✅ Data DEM (SRTM) berhasil diambil")
+            
+            # Hitung slope dari DEM sebagai proxy untuk flow
+            slope = ee.Terrain.slope(dem)
+            print("   ✅ Slope dihitung dari DEM")
+        except Exception as e:
+            print(f"   ⚠️ Error loading DEM: {e}")
+            dem = None
+            slope = None
         
-        print("   ✅ Data hidrologi berhasil diambil dari GEE")
+        # Dataset 3: MERIT Hydro sebagai alternatif untuk flow accumulation
+        # Lebih stabil dan reliable untuk analisis hidrologi
+        try:
+            # Gunakan MERIT Hydro - flow accumulation yang lebih akurat
+            flow_acc = ee.Image('MERIT/Hydro/v1_0_1') \
+                .select('upg') \
+                .clip(buffer_zone)
+            print("   ✅ Data MERIT Hydro (flow accumulation) berhasil diambil")
+        except Exception as e:
+            print(f"   ⚠️ Error loading MERIT Hydro, using slope as fallback: {e}")
+            # Fallback: gunakan slope sebagai indikator aliran
+            flow_acc = slope if slope is not None else dem
+        
+        print("   ✅ Semua data hidrologi berhasil disiapkan")
         
         # ========== 2. BUAT PETA INTERAKTIF DENGAN FOLIUM ==========
         print("\n🗺️ Membuat peta interaktif...")
@@ -951,29 +975,34 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         folium.Map.add_ee_layer = add_ee_layer
         
         # Layer 1: DEM (Topografi)
-        dem_vis = {
-            'min': 0,
-            'max': 3000,
-            'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
-        }
-        m.add_ee_layer(dem, dem_vis, 'Elevasi (DEM)', show=False, opacity=0.6)
+        if dem is not None:
+            dem_vis = {
+                'min': 0,
+                'max': 3000,
+                'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
+            }
+            m.add_ee_layer(dem, dem_vis, 'Elevasi (DEM)', show=False, opacity=0.6)
+            print("   ✅ Layer DEM ditambahkan ke peta")
         
         # Layer 2: Flow Accumulation (Jaringan Sungai)
-        # Log scale untuk visualisasi yang lebih baik
-        flow_vis = {
-            'min': 100,
-            'max': 10000,
-            'palette': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
-        }
-        m.add_ee_layer(flow_acc, flow_vis, 'Akumulasi Aliran', show=True, opacity=0.7)
+        if flow_acc is not None:
+            flow_vis = {
+                'min': 0,
+                'max': 1000,
+                'palette': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
+            }
+            m.add_ee_layer(flow_acc, flow_vis, 'Akumulasi Aliran', show=True, opacity=0.7)
+            print("   ✅ Layer Flow Accumulation ditambahkan ke peta")
         
         # Layer 3: Water Occurrence (Badan Air Permanen)
-        water_vis = {
-            'min': 0,
-            'max': 100,
-            'palette': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
-        }
-        m.add_ee_layer(water_occurrence, water_vis, 'Kejadian Air (%)', show=True, opacity=0.6)
+        if water_occurrence is not None:
+            water_vis = {
+                'min': 0,
+                'max': 100,
+                'palette': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
+            }
+            m.add_ee_layer(water_occurrence, water_vis, 'Kejadian Air (%)', show=True, opacity=0.6)
+            print("   ✅ Layer Water Occurrence ditambahkan ke peta")
         
         # ========== 4. TAMBAHKAN MARKER & INFORMASI ==========
         
@@ -1086,44 +1115,70 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 png_created = False
                 
             # Alternatif: Buat visualisasi static dengan matplotlib
-            if not png_created:
+            if not png_created and (flow_acc is not None or dem is not None):
                 print("📊 Membuat visualisasi statis dengan matplotlib...")
                 
-                # Get flow accumulation data
-                flow_data = flow_acc.sampleRectangle(region=buffer_zone, defaultValue=0)
-                flow_array = np.array(flow_data.get('b1').getInfo())
-                
-                # Create static visualization
-                fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
-                
-                # Plot flow accumulation
-                im = ax.imshow(np.log10(flow_array + 1), cmap='Blues', aspect='auto')
-                
-                # Add colorbar
-                cbar = plt.colorbar(im, ax=ax, label='Log10(Flow Accumulation)')
-                
-                # Add title and labels
-                ax.set_title(f'Peta Jaringan Sungai\n{lat:.4f}°N, {lon:.4f}°E', 
-                           fontsize=14, fontweight='bold')
-                ax.set_xlabel('Longitude (relative)', fontsize=10)
-                ax.set_ylabel('Latitude (relative)', fontsize=10)
-                
-                # Add marker for analysis point (approximate center)
-                center_x, center_y = flow_array.shape[1] // 2, flow_array.shape[0] // 2
-                ax.plot(center_x, center_y, 'r*', markersize=20, 
-                       label='Titik Analisis', markeredgecolor='white', markeredgewidth=1.5)
-                ax.legend(loc='upper right')
-                
-                # Add grid
-                ax.grid(True, alpha=0.3)
-                
-                # Save PNG
-                png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
-                plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white')
-                plt.close()
-                
-                print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
-                png_created = True
+                try:
+                    # Pilih data untuk visualisasi (prioritas: flow_acc, dem, water_occurrence)
+                    viz_data = flow_acc if flow_acc is not None else dem
+                    viz_label = 'Flow Accumulation' if flow_acc is not None else 'Elevation (m)'
+                    
+                    if viz_data is not None:
+                        # Get data sample
+                        sample_data = viz_data.sampleRectangle(region=buffer_zone, defaultValue=0)
+                        
+                        # Ambil band pertama yang tersedia
+                        band_names = sample_data.bandNames().getInfo()
+                        first_band = band_names[0] if band_names else 'b1'
+                        
+                        data_array = np.array(sample_data.get(first_band).getInfo())
+                        
+                        # Create static visualization
+                        fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
+                        
+                        # Plot data dengan log scale jika flow accumulation
+                        if flow_acc is not None:
+                            im = ax.imshow(np.log10(data_array + 1), cmap='Blues', aspect='auto')
+                            cbar_label = 'Log10(Flow Accumulation)'
+                        else:
+                            im = ax.imshow(data_array, cmap='terrain', aspect='auto')
+                            cbar_label = viz_label
+                        
+                        # Add colorbar
+                        cbar = plt.colorbar(im, ax=ax, label=cbar_label)
+                        
+                        # Add title and labels
+                        ax.set_title(f'Peta Jaringan Sungai\n{lat:.4f}°N, {lon:.4f}°E', 
+                                   fontsize=14, fontweight='bold')
+                        ax.set_xlabel('Longitude (relative)', fontsize=10)
+                        ax.set_ylabel('Latitude (relative)', fontsize=10)
+                        
+                        # Add marker for analysis point (approximate center)
+                        center_x, center_y = data_array.shape[1] // 2, data_array.shape[0] // 2
+                        ax.plot(center_x, center_y, 'r*', markersize=20, 
+                               label='Titik Analisis', markeredgecolor='white', markeredgewidth=1.5)
+                        ax.legend(loc='upper right')
+                        
+                        # Add grid
+                        ax.grid(True, alpha=0.3)
+                        
+                        # Save PNG
+                        png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
+                        plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white')
+                        plt.close()
+                        
+                        print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
+                        png_created = True
+                    else:
+                        print("⚠️  Tidak ada data yang tersedia untuk membuat PNG")
+                        png_path = None
+                        
+                except Exception as matplotlib_error:
+                    print(f"⚠️  Error membuat PNG dengan matplotlib: {str(matplotlib_error)}")
+                    png_path = None
+            elif not png_created:
+                print("⚠️  Skip PNG generation - tidak ada data yang tersedia")
+                png_path = None
                 
         except Exception as png_error:
             print(f"⚠️  Tidak dapat membuat PNG: {str(png_error)}")
@@ -1134,23 +1189,37 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         # ========== 8. EXTRACT INFORMASI SUNGAI ==========
         print("\n📊 Menganalisis karakteristik jaringan sungai...")
         
-        # Hitung statistik flow accumulation
-        flow_stats = flow_acc.reduceRegion(
-            reducer=ee.Reducer.mean().combine(
-                ee.Reducer.minMax(), '', True
-            ),
-            geometry=buffer_zone,
-            scale=90,
-            maxPixels=1e9
-        ).getInfo()
+        try:
+            # Hitung statistik flow accumulation jika tersedia
+            if flow_acc is not None:
+                flow_stats = flow_acc.reduceRegion(
+                    reducer=ee.Reducer.mean().combine(
+                        ee.Reducer.minMax(), '', True
+                    ),
+                    geometry=buffer_zone,
+                    scale=90,
+                    maxPixels=1e9
+                ).getInfo()
+            else:
+                flow_stats = {}
+            
+            # Hitung water occurrence jika tersedia
+            if water_occurrence is not None:
+                water_stats = water_occurrence.reduceRegion(
+                    reducer=ee.Reducer.mean(),
+                    geometry=buffer_zone,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo()
+            else:
+                water_stats = {}
+        except Exception as stats_error:
+            print(f"   ⚠️ Error menghitung statistik: {stats_error}")
+            flow_stats = {}
+            water_stats = {}
         
-        # Hitung water occurrence
-        water_stats = water_occurrence.reduceRegion(
-            reducer=ee.Reducer.mean(),
-            geometry=buffer_zone,
-            scale=30,
-            maxPixels=1e9
-        ).getInfo()
+        # Deteksi band name yang digunakan (berbeda antara MERIT Hydro dan slope)
+        flow_band = 'upg' if 'upg_mean' in flow_stats else 'b1'
         
         river_info = {
             'location': {
@@ -1159,10 +1228,10 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'buffer_radius_km': float(buffer_size / 1000)
             },
             'flow_characteristics': {
-                'mean_accumulation': float(flow_stats.get('b1_mean', 0)),
-                'max_accumulation': float(flow_stats.get('b1_max', 0)),
-                'min_accumulation': float(flow_stats.get('b1_min', 0)),
-                'description': 'Flow accumulation menunjukkan jumlah sel yang mengalir ke satu titik'
+                'mean_accumulation': float(flow_stats.get(f'{flow_band}_mean', 0)),
+                'max_accumulation': float(flow_stats.get(f'{flow_band}_max', 0)),
+                'min_accumulation': float(flow_stats.get(f'{flow_band}_min', 0)),
+                'description': 'Upstream area dari MERIT Hydro atau slope dari DEM'
             },
             'water_occurrence': {
                 'mean_percentage': float(water_stats.get('occurrence', 0)),
@@ -1175,7 +1244,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'png_path_full': png_path if png_created else None
             },
             'data_sources': {
-                'flow_accumulation': 'WWF/HydroSHEDS/03ACC',
+                'flow_accumulation': 'MERIT/Hydro/v1_0_1 (atau slope dari DEM)',
                 'water_occurrence': 'JRC/GSW1_4/GlobalSurfaceWater',
                 'elevation': 'USGS/SRTMGL1_003'
             }
