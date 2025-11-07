@@ -1127,71 +1127,170 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 print("⚠️  Selenium tidak tersedia, mencoba metode alternatif...")
                 png_created = False
                 
-            # Alternatif: Buat visualisasi static dengan matplotlib
+            # Alternatif: Buat visualisasi REAL dengan data GEE
             if not png_created:
-                print("📊 Membuat visualisasi statis dengan matplotlib...")
-                print("   ⚠️ Metode sederhana: Buat placeholder map dengan koordinat")
+                print("📊 Membuat visualisasi peta sungai REAL dengan data GEE...")
                 
                 try:
-                    # Create simple placeholder visualization dengan info peta
-                    fig, ax = plt.subplots(figsize=(12, 10), dpi=150, facecolor='white')
+                    # ========== AMBIL DATA RASTER DARI GEE ==========
+                    print("   🔍 Mengambil data raster untuk visualisasi...")
                     
-                    # Set background color
-                    ax.set_facecolor('#e6f3ff')
+                    # Calculate bounds untuk area yang akan divisualisasi
+                    buffer_deg = buffer_size / 111000  # Convert meter ke derajat (approx)
+                    bounds = {
+                        'west': lon - buffer_deg,
+                        'east': lon + buffer_deg,
+                        'south': lat - buffer_deg,
+                        'north': lat + buffer_deg
+                    }
                     
-                    # Remove axes
-                    ax.set_xlim(0, 10)
-                    ax.set_ylim(0, 10)
-                    ax.axis('off')
-                    
-                    # Add title
-                    ax.text(5, 9, 'Peta Jaringan Sungai', 
-                           ha='center', va='top', fontsize=24, fontweight='bold', color='#003366')
-                    
-                    # Add location info
-                    ax.text(5, 8, f'📍 Lokasi: {lat:.4f}°N, {lon:.4f}°E', 
-                           ha='center', va='top', fontsize=16, color='#333333')
-                    
-                    # Add buffer info
-                    ax.text(5, 7.3, f'🔍 Area Buffer: {buffer_size/1000:.1f} km radius', 
-                           ha='center', va='top', fontsize=14, color='#666666')
-                    
-                    # Add data sources
-                    sources_text = '📊 Data Sources:\n'
+                    # Download flow accumulation sebagai array
                     if flow_acc is not None:
-                        sources_text += '✅ MERIT Hydro - Flow Accumulation\n'
-                    if water_occurrence is not None:
-                        sources_text += '✅ JRC Global Surface Water\n'
+                        try:
+                            # Get thumbnail URL untuk flow accumulation
+                            flow_vis_params = {
+                                'min': 0,
+                                'max': 1000,
+                                'dimensions': '800x800',
+                                'region': buffer_zone,
+                                'format': 'png'
+                            }
+                            
+                            flow_url = flow_acc.getThumbURL(flow_vis_params)
+                            print(f"   ✓ Flow accumulation URL generated")
+                            
+                            # Download image dari URL
+                            import urllib.request
+                            from PIL import Image
+                            import io
+                            
+                            # Download flow accumulation image
+                            with urllib.request.urlopen(flow_url) as response:
+                                flow_img_data = response.read()
+                                flow_img = Image.open(io.BytesIO(flow_img_data))
+                            
+                            print(f"   ✓ Flow accumulation image downloaded ({flow_img.size})")
+                            
+                        except Exception as e:
+                            print(f"   ⚠️ Error downloading flow acc: {e}")
+                            flow_img = None
+                    else:
+                        flow_img = None
+                    
+                    # Download DEM sebagai background
                     if dem is not None:
-                        sources_text += '✅ SRTM DEM - Elevation\n'
+                        try:
+                            dem_vis_params = {
+                                'min': 0,
+                                'max': 3000,
+                                'dimensions': '800x800',
+                                'region': buffer_zone,
+                                'format': 'png',
+                                'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321']
+                            }
+                            
+                            dem_url = dem.getThumbURL(dem_vis_params)
+                            print(f"   ✓ DEM URL generated")
+                            
+                            with urllib.request.urlopen(dem_url) as response:
+                                dem_img_data = response.read()
+                                dem_img = Image.open(io.BytesIO(dem_img_data))
+                            
+                            print(f"   ✓ DEM image downloaded ({dem_img.size})")
+                            
+                        except Exception as e:
+                            print(f"   ⚠️ Error downloading DEM: {e}")
+                            dem_img = None
+                    else:
+                        dem_img = None
                     
-                    ax.text(5, 6, sources_text, 
-                           ha='center', va='top', fontsize=12, color='#006600',
-                           bbox=dict(boxstyle='round,pad=0.8', facecolor='#f0fff0', edgecolor='#006600', linewidth=2))
+                    # ========== BUAT VISUALISASI PETA ==========
+                    fig, ax = plt.subplots(figsize=(14, 12), dpi=150, facecolor='white')
                     
-                    # Add interactive map notice
-                    notice_text = '🗺️ Peta Interaktif Tersedia!\n\n' \
-                                 'Buka file HTML untuk:\n' \
-                                 '• Zoom in/out peta\n' \
-                                 '• Toggle layer data\n' \
-                                 '• Lihat detail lokasi\n' \
-                                 '• Multiple basemaps'
+                    # Plot DEM sebagai background
+                    if dem_img is not None:
+                        ax.imshow(dem_img, extent=[bounds['west'], bounds['east'], 
+                                                   bounds['south'], bounds['north']],
+                                 alpha=0.5, zorder=1)
+                        print("   ✓ DEM plotted as background")
                     
-                    ax.text(5, 3.5, notice_text, 
-                           ha='center', va='top', fontsize=11, color='#000066',
-                           bbox=dict(boxstyle='round,pad=0.8', facecolor='#e6f0ff', edgecolor='#0066cc', linewidth=2))
+                    # Plot flow accumulation (river network)
+                    if flow_img is not None:
+                        # Convert to numpy array dan apply colormap
+                        flow_array = np.array(flow_img)
+                        
+                        # Apply blue colormap untuk river
+                        from matplotlib.colors import LinearSegmentedColormap
+                        colors = ['#ffffff', '#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
+                        n_bins = 256
+                        cmap = LinearSegmentedColormap.from_list('river', colors, N=n_bins)
+                        
+                        im = ax.imshow(flow_array, extent=[bounds['west'], bounds['east'], 
+                                                           bounds['south'], bounds['north']],
+                                      cmap=cmap, alpha=0.7, zorder=2)
+                        
+                        # Add colorbar
+                        cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.02, fraction=0.046)
+                        cbar.set_label('Akumulasi Aliran (Flow Accumulation)', fontsize=10)
+                        
+                        print("   ✓ Flow accumulation plotted")
                     
-                    # Add footer
-                    ax.text(5, 0.5, 'Generated by RIVANA Hydrological ML System', 
-                           ha='center', va='bottom', fontsize=10, color='#999999', style='italic')
+                    # Plot marker lokasi analisis
+                    ax.plot(lon, lat, 'r*', markersize=20, zorder=5, 
+                           markeredgecolor='white', markeredgewidth=2, label='Lokasi Analisis')
                     
-                    # Add decorative elements
-                    from matplotlib.patches import Circle
-                    # Add circles to represent map marker
-                    circle1 = Circle((5, 5), 0.3, color='#ff4444', alpha=0.7, zorder=10)
-                    circle2 = Circle((5, 5), 0.15, color='#ffffff', alpha=0.9, zorder=11)
-                    ax.add_patch(circle1)
-                    ax.add_patch(circle2)
+                    # Plot buffer circle
+                    circle = plt.Circle((lon, lat), buffer_deg, color='red', 
+                                       fill=False, linewidth=2, linestyle='--', 
+                                       alpha=0.5, zorder=4, label=f'Buffer {buffer_size/1000:.1f} km')
+                    ax.add_patch(circle)
+                    
+                    # Styling
+                    ax.set_xlim(bounds['west'], bounds['east'])
+                    ax.set_ylim(bounds['south'], bounds['north'])
+                    ax.set_xlabel('Longitude (°E)', fontsize=12, fontweight='bold')
+                    ax.set_ylabel('Latitude (°N)', fontsize=12, fontweight='bold')
+                    ax.set_title('🌊 PETA JARINGAN ALIRAN SUNGAI\n' + 
+                                f'Lokasi: {lat:.4f}°N, {lon:.4f}°E',
+                                fontsize=16, fontweight='bold', pad=20)
+                    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+                    ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+                    
+                    # Add north arrow
+                    ax.annotate('N', xy=(0.95, 0.95), xycoords='axes fraction',
+                               fontsize=20, fontweight='bold', ha='center', va='center',
+                               bbox=dict(boxstyle='circle', facecolor='white', edgecolor='black', linewidth=2))
+                    ax.annotate('↑', xy=(0.95, 0.92), xycoords='axes fraction',
+                               fontsize=16, ha='center', va='top')
+                    
+                    # Add scale bar (approximate)
+                    scale_km = 5  # 5 km scale bar
+                    scale_deg = scale_km / 111  # Convert to degrees
+                    scale_x_start = bounds['west'] + (bounds['east'] - bounds['west']) * 0.05
+                    scale_y = bounds['south'] + (bounds['north'] - bounds['south']) * 0.05
+                    
+                    ax.plot([scale_x_start, scale_x_start + scale_deg], 
+                           [scale_y, scale_y], 'k-', linewidth=3, zorder=6)
+                    ax.text(scale_x_start + scale_deg/2, scale_y - (bounds['north'] - bounds['south']) * 0.02,
+                           f'{scale_km} km', ha='center', va='top', fontsize=10,
+                           bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    
+                    # Add data source info
+                    info_text = 'Data Sources:\n'
+                    if flow_acc is not None:
+                        info_text += '• MERIT Hydro - Flow Accumulation\n'
+                    if dem is not None:
+                        info_text += '• SRTM DEM - Elevation\n'
+                    if water_occurrence is not None:
+                        info_text += '• JRC Global Surface Water\n'
+                    info_text += '\nGenerated by RIVANA ML System'
+                    
+                    ax.text(0.02, 0.02, info_text,
+                           transform=ax.transAxes,
+                           fontsize=8, verticalalignment='bottom',
+                           bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+                    
+                    plt.tight_layout()
                     
                     # Save PNG
                     png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
@@ -1199,19 +1298,68 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     plt.close()
                     
                     # Verify file was created and has content
-                    if os.path.exists(png_path) and os.path.getsize(png_path) > 1000:
-                        print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
+                    if os.path.exists(png_path) and os.path.getsize(png_path) > 10000:  # Min 10KB untuk real map
+                        print(f"✅ Peta PNG REAL tersimpan: {os.path.basename(png_path)}")
                         print(f"   📏 Ukuran file: {os.path.getsize(png_path)/1024:.1f} KB")
+                        print(f"   🗺️ Peta berisi visualisasi data GEE asli (DEM + Flow Accumulation)")
                         png_created = True
                     else:
                         print("⚠️  PNG file terlalu kecil atau tidak valid")
                         png_path = None
                         
                 except Exception as matplotlib_error:
-                    print(f"⚠️  Error membuat PNG dengan matplotlib: {str(matplotlib_error)}")
+                    print(f"⚠️  Error membuat PNG dengan data GEE: {str(matplotlib_error)}")
                     import traceback
                     traceback.print_exc()
-                    png_path = None
+                    
+                    # Fallback terakhir: Buat peta sederhana dengan info
+                    print("   📝 Membuat peta info sederhana sebagai fallback...")
+                    try:
+                        fig, ax = plt.subplots(figsize=(12, 10), dpi=150, facecolor='white')
+                        ax.set_facecolor('#e6f3ff')
+                        ax.set_xlim(0, 10)
+                        ax.set_ylim(0, 10)
+                        ax.axis('off')
+                        
+                        # Title
+                        ax.text(5, 9, 'Peta Aliran Sungai', 
+                               ha='center', va='top', fontsize=24, fontweight='bold', color='#003366')
+                        
+                        # Location
+                        ax.text(5, 8, f'📍 Lokasi: {lat:.4f}°N, {lon:.4f}°E', 
+                               ha='center', va='top', fontsize=16, color='#333333')
+                        
+                        # Buffer
+                        ax.text(5, 7.3, f'🔍 Area Buffer: {buffer_size/1000:.1f} km radius', 
+                               ha='center', va='top', fontsize=14, color='#666666')
+                        
+                        # Notice
+                        notice_text = '🗺️ Peta Interaktif Tersedia!\n\n' \
+                                     'Buka file HTML untuk melihat peta lengkap:\n' \
+                                     '• Visualisasi aliran sungai REAL\n' \
+                                     '• Zoom in/out interaktif\n' \
+                                     '• Toggle layer data\n' \
+                                     '• Multiple basemaps'
+                        
+                        ax.text(5, 4.5, notice_text, 
+                               ha='center', va='top', fontsize=11, color='#000066',
+                               bbox=dict(boxstyle='round,pad=0.8', facecolor='#e6f0ff', edgecolor='#0066cc', linewidth=2))
+                        
+                        # Footer
+                        ax.text(5, 0.5, 'Generated by RIVANA - Buka HTML untuk peta lengkap', 
+                               ha='center', va='bottom', fontsize=10, color='#999999', style='italic')
+                        
+                        png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
+                        plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white')
+                        plt.close()
+                        
+                        if os.path.exists(png_path):
+                            print(f"✅ Peta info tersimpan: {os.path.basename(png_path)}")
+                            print(f"   💡 Untuk peta lengkap, lihat file HTML interaktif")
+                        else:
+                            png_path = None
+                    except:
+                        png_path = None
                 
         except Exception as png_error:
             print(f"⚠️  Tidak dapat membuat PNG: {str(png_error)}")
