@@ -1077,10 +1077,23 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         
         # ========== 6. SIMPAN PETA ==========
         
+        # Pastikan output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
         # Save sebagai HTML (interaktif)
         html_path = os.path.join(output_dir, 'peta_aliran_sungai_interaktif.html')
         m.save(html_path)
-        print(f"\n✅ Peta HTML interaktif tersimpan: {os.path.basename(html_path)}")
+        
+        # Verify HTML file was created successfully
+        if os.path.exists(html_path):
+            file_size = os.path.getsize(html_path)
+            if file_size > 1000:  # Minimal 1KB untuk file valid
+                print(f"\n✅ Peta HTML interaktif tersimpan: {os.path.basename(html_path)}")
+                print(f"   📏 Ukuran file: {file_size/1024:.1f} KB")
+            else:
+                print(f"\n⚠️ File HTML terlalu kecil ({file_size} bytes), mungkin ada error")
+        else:
+            print(f"\n❌ Error: File HTML tidak tersimpan di {html_path}")
         
         # ========== 7. EXPORT SEBAGAI PNG (SCREENSHOT) ==========
         print("\n📸 Membuat screenshot PNG dari peta...")
@@ -1115,70 +1128,90 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 png_created = False
                 
             # Alternatif: Buat visualisasi static dengan matplotlib
-            if not png_created and (flow_acc is not None or dem is not None):
+            if not png_created:
                 print("📊 Membuat visualisasi statis dengan matplotlib...")
+                print("   ⚠️ Metode sederhana: Buat placeholder map dengan koordinat")
                 
                 try:
-                    # Pilih data untuk visualisasi (prioritas: flow_acc, dem, water_occurrence)
-                    viz_data = flow_acc if flow_acc is not None else dem
-                    viz_label = 'Flow Accumulation' if flow_acc is not None else 'Elevation (m)'
+                    # Create simple placeholder visualization dengan info peta
+                    fig, ax = plt.subplots(figsize=(12, 10), dpi=150, facecolor='white')
                     
-                    if viz_data is not None:
-                        # Get data sample
-                        sample_data = viz_data.sampleRectangle(region=buffer_zone, defaultValue=0)
-                        
-                        # Ambil band pertama yang tersedia
-                        band_names = sample_data.bandNames().getInfo()
-                        first_band = band_names[0] if band_names else 'b1'
-                        
-                        data_array = np.array(sample_data.get(first_band).getInfo())
-                        
-                        # Create static visualization
-                        fig, ax = plt.subplots(figsize=(12, 10), dpi=150)
-                        
-                        # Plot data dengan log scale jika flow accumulation
-                        if flow_acc is not None:
-                            im = ax.imshow(np.log10(data_array + 1), cmap='Blues', aspect='auto')
-                            cbar_label = 'Log10(Flow Accumulation)'
-                        else:
-                            im = ax.imshow(data_array, cmap='terrain', aspect='auto')
-                            cbar_label = viz_label
-                        
-                        # Add colorbar
-                        cbar = plt.colorbar(im, ax=ax, label=cbar_label)
-                        
-                        # Add title and labels
-                        ax.set_title(f'Peta Jaringan Sungai\n{lat:.4f}°N, {lon:.4f}°E', 
-                                   fontsize=14, fontweight='bold')
-                        ax.set_xlabel('Longitude (relative)', fontsize=10)
-                        ax.set_ylabel('Latitude (relative)', fontsize=10)
-                        
-                        # Add marker for analysis point (approximate center)
-                        center_x, center_y = data_array.shape[1] // 2, data_array.shape[0] // 2
-                        ax.plot(center_x, center_y, 'r*', markersize=20, 
-                               label='Titik Analisis', markeredgecolor='white', markeredgewidth=1.5)
-                        ax.legend(loc='upper right')
-                        
-                        # Add grid
-                        ax.grid(True, alpha=0.3)
-                        
-                        # Save PNG
-                        png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
-                        plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white')
-                        plt.close()
-                        
+                    # Set background color
+                    ax.set_facecolor('#e6f3ff')
+                    
+                    # Remove axes
+                    ax.set_xlim(0, 10)
+                    ax.set_ylim(0, 10)
+                    ax.axis('off')
+                    
+                    # Add title
+                    ax.text(5, 9, 'Peta Jaringan Sungai', 
+                           ha='center', va='top', fontsize=24, fontweight='bold', color='#003366')
+                    
+                    # Add location info
+                    ax.text(5, 8, f'📍 Lokasi: {lat:.4f}°N, {lon:.4f}°E', 
+                           ha='center', va='top', fontsize=16, color='#333333')
+                    
+                    # Add buffer info
+                    ax.text(5, 7.3, f'🔍 Area Buffer: {buffer_size/1000:.1f} km radius', 
+                           ha='center', va='top', fontsize=14, color='#666666')
+                    
+                    # Add data sources
+                    sources_text = '📊 Data Sources:\n'
+                    if flow_acc is not None:
+                        sources_text += '✅ MERIT Hydro - Flow Accumulation\n'
+                    if water_occurrence is not None:
+                        sources_text += '✅ JRC Global Surface Water\n'
+                    if dem is not None:
+                        sources_text += '✅ SRTM DEM - Elevation\n'
+                    
+                    ax.text(5, 6, sources_text, 
+                           ha='center', va='top', fontsize=12, color='#006600',
+                           bbox=dict(boxstyle='round,pad=0.8', facecolor='#f0fff0', edgecolor='#006600', linewidth=2))
+                    
+                    # Add interactive map notice
+                    notice_text = '🗺️ Peta Interaktif Tersedia!\n\n' \
+                                 'Buka file HTML untuk:\n' \
+                                 '• Zoom in/out peta\n' \
+                                 '• Toggle layer data\n' \
+                                 '• Lihat detail lokasi\n' \
+                                 '• Multiple basemaps'
+                    
+                    ax.text(5, 3.5, notice_text, 
+                           ha='center', va='top', fontsize=11, color='#000066',
+                           bbox=dict(boxstyle='round,pad=0.8', facecolor='#e6f0ff', edgecolor='#0066cc', linewidth=2))
+                    
+                    # Add footer
+                    ax.text(5, 0.5, 'Generated by RIVANA Hydrological ML System', 
+                           ha='center', va='bottom', fontsize=10, color='#999999', style='italic')
+                    
+                    # Add decorative elements
+                    from matplotlib.patches import Circle
+                    # Add circles to represent map marker
+                    circle1 = Circle((5, 5), 0.3, color='#ff4444', alpha=0.7, zorder=10)
+                    circle2 = Circle((5, 5), 0.15, color='#ffffff', alpha=0.9, zorder=11)
+                    ax.add_patch(circle1)
+                    ax.add_patch(circle2)
+                    
+                    # Save PNG
+                    png_path = os.path.join(output_dir, 'peta_aliran_sungai.png')
+                    plt.savefig(png_path, dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
+                    plt.close()
+                    
+                    # Verify file was created and has content
+                    if os.path.exists(png_path) and os.path.getsize(png_path) > 1000:
                         print(f"✅ Peta PNG tersimpan: {os.path.basename(png_path)}")
+                        print(f"   📏 Ukuran file: {os.path.getsize(png_path)/1024:.1f} KB")
                         png_created = True
                     else:
-                        print("⚠️  Tidak ada data yang tersedia untuk membuat PNG")
+                        print("⚠️  PNG file terlalu kecil atau tidak valid")
                         png_path = None
                         
                 except Exception as matplotlib_error:
                     print(f"⚠️  Error membuat PNG dengan matplotlib: {str(matplotlib_error)}")
+                    import traceback
+                    traceback.print_exc()
                     png_path = None
-            elif not png_created:
-                print("⚠️  Skip PNG generation - tidak ada data yang tersedia")
-                png_path = None
                 
         except Exception as png_error:
             print(f"⚠️  Tidak dapat membuat PNG: {str(png_error)}")
