@@ -1121,15 +1121,24 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
     
     def get_file_display_order(self, filename):
         """Get display order priority untuk sorting files"""
-        # Priority order: PNG files first, then CSV, then JSON, then others
-        if filename.endswith('.png'):
-            # Dashboard files first
-            if 'Dashboard' in filename:
-                return 1
-            elif 'Summary' in filename:
-                return 2
+        # Priority order: HTML/Map files first, PNG, CSV, JSON, then others
+        if filename.endswith('.html'):
+            # Interactive map - highest priority
+            if 'peta_aliran_sungai' in filename.lower() or 'interaktif' in filename.lower():
+                return 0
             else:
+                return 1
+        elif filename.endswith('.png'):
+            # River map PNG - high priority after HTML
+            if 'peta_aliran_sungai' in filename.lower():
+                return 2
+            # Dashboard files
+            elif 'Dashboard' in filename:
                 return 3
+            elif 'Summary' in filename:
+                return 4
+            else:
+                return 5
         elif filename.endswith('.csv'):
             # Complete data first
             if 'Complete' in filename:
@@ -1139,8 +1148,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             else:
                 return 12
         elif filename.endswith('.json'):
+            # River map metadata
+            if 'peta_aliran_sungai' in filename.lower():
+                return 19
             # Validation file first
-            if 'Validation' in filename:
+            elif 'Validation' in filename:
                 return 20
             else:
                 return 21
@@ -1544,13 +1556,15 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     "files_by_type": {
                         "png": [f for f in all_files if f['type'] == 'png'],
                         "csv": [f for f in all_files if f['type'] == 'csv'],
-                        "json": [f for f in all_files if f['type'] == 'json']
+                        "json": [f for f in all_files if f['type'] == 'json'],
+                        "html": [f for f in all_files if f['type'] == 'html']
                     },
                     "summary": {
                         "png_count": len([f for f in all_files if f['type'] == 'png']),
                         "csv_count": len([f for f in all_files if f['type'] == 'csv']),
                         "json_count": len([f for f in all_files if f['type'] == 'json']),
-                        "other_count": len([f for f in all_files if f['type'] not in ['png', 'csv', 'json']])
+                        "html_count": len([f for f in all_files if f['type'] == 'html']),
+                        "other_count": len([f for f in all_files if f['type'] not in ['png', 'csv', 'json', 'html']])
                     }
                 }).encode('utf-8'))
             else:
