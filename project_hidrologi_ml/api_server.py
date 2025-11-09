@@ -483,7 +483,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "index": f"{df['ecosystem_health'].mean() * 100:.1f}%",
                         "status": self.get_ecosystem_status(df['ecosystem_health'].mean() * 100),
                         "habitat_fish": f"{df['fish_HSI'].mean():.2f}" if 'fish_HSI' in df.columns else "N/A",
-                        "habitat_vegevapotranspirationation": f"{df['vegevapotranspirationation_HSI'].mean():.2f}" if 'vegevapotranspirationation_HSI' in df.columns else "N/A"
+                        "habitat_vegetation": f"{df['vegetation_HSI'].mean():.2f}" if 'vegetation_HSI' in df.columns else "N/A"
                     }
             else:
                 # CSV file tidak ditemukan
@@ -529,7 +529,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "RMSE": f"{val_data.get('RMSE', 0):.3f}",
                             "MAE": f"{val_data.get('MAE', 0):.3f}",
                             "status": val_data.get('status', 'N/A'),
-                            "interprevapotranspirationasi": val_data.get('interprevapotranspirationation', 'N/A')
+                            "interpretasi": val_data.get('interpretation', 'N/A')
                         }
                 except Exception as e:
                     print(f"Warning: Could not read model validation file: {e}")
@@ -549,7 +549,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         summary["baseline_comparison"] = {
                             "ml_performance": comp_results.get('ML_Model', {}),
                             "traditional_methods": {
-                                "Rational": comp_results.get('Rational Mevapotranspirationhod', {}),
+                                "Rational": comp_results.get('Rational Method', {}),
                                 "Curve Number": comp_results.get('Curve Number', {}),
                                 "Simple Balance": comp_results.get('Simple Balance', {}),
                                 "Persistence": comp_results.get('Persistence', {}),
@@ -670,13 +670,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         manfaat_industri = df['supply_Industry'].sum() * 1200 if 'supply_Industry' in df.columns else 0
                         total_manfaat = manfaat_pertanian + manfaat_domestik + manfaat_industri
                         
-                        nevapotranspiration_benefit = total_manfaat - total_biaya
+                        net_benefit = total_manfaat - total_biaya
                         efisiensi = (total_manfaat / total_biaya * 100) if total_biaya > 0 else 0
                         
                         summary["analysis_results"]["economics"] = {
                             "total_biaya": f"Rp {total_biaya:,.0f}",
                             "total_manfaat": f"Rp {total_manfaat:,.0f}",
-                            "nevapotranspiration_benefit": f"Rp {nevapotranspiration_benefit:,.0f}",
+                            "net_benefit": f"Rp {net_benefit:,.0f}",
                             "efisiensi": f"{efisiensi:.1f}%",
                             "breakdown": {
                                 "Biaya Operasi": f"Rp {biaya_operasi:,.0f}",
@@ -740,7 +740,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     summary["ekologi"] = {
                         "ecosystem_health": f"{eco_health:.1f}%",
                         "habitat_ikan": f"{df['fish_HSI'].mean():.2f}" if 'fish_HSI' in df.columns else "N/A",
-                        "habitat_vegevapotranspirationasi": f"{df['vegevapotranspirationation_HSI'].mean():.2f}" if 'vegevapotranspirationation_HSI' in df.columns else "N/A",
+                        "habitat_vegevapotranspirationasi": f"{df['vegetation_HSI'].mean():.2f}" if 'vegetation_HSI' in df.columns else "N/A",
                         "temperature_air": f"{df['temperature'].mean():.1f}Â°C" if 'temperature' in df.columns else "N/A",
                         "status": self.get_ecosystem_status(eco_health)
                     }
@@ -754,9 +754,9 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "HSI": f"{df['fish_HSI'].mean():.2f}" if 'fish_HSI' in df.columns else "N/A",
                             "status": "Good" if 'fish_HSI' in df.columns and df['fish_HSI'].mean() > 0.6 else "Fair"
                         },
-                        "vegevapotranspirationation": {
-                            "HSI": f"{df['vegevapotranspirationation_HSI'].mean():.2f}" if 'vegevapotranspirationation_HSI' in df.columns else "N/A",
-                            "status": "Good" if 'vegevapotranspirationation_HSI' in df.columns and df['vegevapotranspirationation_HSI'].mean() > 0.6 else "Fair"
+                        "vegetation": {
+                            "HSI": f"{df['vegetation_HSI'].mean():.2f}" if 'vegetation_HSI' in df.columns else "N/A",
+                            "status": "Good" if 'vegetation_HSI' in df.columns and df['vegetation_HSI'].mean() > 0.6 else "Fair"
                         }
                     }
                 
@@ -803,7 +803,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "error_persentase": f"{validation_data.get('mass_balance_error_pct', 0):.4f}%",
                             "status": "âœ… VALID" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "âš ï¸ PERLU REVIEW",
                             "residual": f"{validation_data.get('residual', 0):.2f} mm",
-                            "kevapotranspirationerangan": "Keseimbangan massa terjaga" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "Perlu kalibrasi ulang"
+                            "keterangan": "Keseimbangan massa terjaga" if abs(validation_data.get('mass_balance_error_pct', 100)) < 1.0 else "Perlu kalibrasi ulang"
                         },
                         "komponen_input": {
                             "rainfall": f"{validation_data.get('input_rainfall', 0):.2f} mm",
@@ -962,7 +962,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "masalah": f"Risiko banjir high ({df['flood_risk'].mean()*100:.1f}%)",
                         "solusi": [
                             "Bangun/perbaiki sistem drainase dan kanal banjir",
-                            "Buat devapotranspirationention pond/kolam revapotranspirationensi",
+                            "Buat detention pond/kolam retensi",
                             "Tingkatkan capacity spillway",
                             "Implementasi early warning system"
                         ],
@@ -1781,7 +1781,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         return
                     
                     # â­ Determine content type based on file extension
-                    content_type = 'application/octevapotranspiration-stream'
+                    content_type = 'application/octet-stream'
                     cache_duration = 3600  # 1 hour default
                     
                     if file_name.endswith('.png'):
@@ -1862,7 +1862,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         return
                     
                     # Tentukan content type berdasarkan ekstensi file
-                    content_type = 'application/octevapotranspiration-stream'
+                    content_type = 'application/octet-stream'
                     if file_name.endswith('.csv'):
                         content_type = 'text/csv'
                     elif file_name.endswith('.json'):
