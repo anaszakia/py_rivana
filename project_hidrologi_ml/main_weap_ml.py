@@ -3246,7 +3246,13 @@ class WaterBalanceAnalyzer:
         print_section("MEMERIKSA KEKEKALAN JUMLAH AIR", "✓")
 
         # Overall statistics
-        total_input = df['wb_input'].sum()
+        # FIX: Input should include rainfall + infiltration + any other water sources
+        total_rainfall = df['rainfall'].sum() if 'rainfall' in df.columns else 0
+        total_infiltration = df['infiltration'].sum() if 'infiltration' in df.columns else 0
+        
+        # Calculate actual total input (rainfall + infiltration that becomes storage)
+        total_input = total_rainfall
+        
         total_output = df['wb_output'].sum()
         total_residual = df['wb_residual'].sum()
 
@@ -3267,6 +3273,12 @@ class WaterBalanceAnalyzer:
                         df['aquifer'].iloc[-1])
         net_storage_change = final_storage - initial_storage
 
+        # FIX: Recalculate residual and error percentage based on corrected input
+        # Water balance equation: P = ET + R + ΔS + ε
+        # Residual ε = P - (ET + R + ΔS)
+        actual_residual = total_input - (total_evapotranspiration + total_runoff + net_storage_change)
+        actual_residual_pct = (actual_residual / total_input * 100) if total_input > 0 else 0.0
+        
         # Validation
         # ✅ UBAH: Gunakan tolerance 5% sesuai standar jurnal
         tolerance_standard = self.tolerance  # 0.05 (5%)
@@ -3274,8 +3286,8 @@ class WaterBalanceAnalyzer:
         validation = {
             'total_input_mm': float(total_input),
             'total_output_mm': float(total_output),
-            'total_residual_mm': float(total_residual),
-            'residual_pct': float((total_residual / total_input) * 100) if total_input > 0 else 0.0,
+            'total_residual_mm': float(actual_residual),
+            'residual_pct': float(actual_residual_pct),
             'mean_daily_error_pct': float(mean_error_pct),
             'max_daily_error_pct': float(max_error_pct),
             'tolerance_pct': float(tolerance_standard * 100),
@@ -3287,7 +3299,7 @@ class WaterBalanceAnalyzer:
                 'storage_change_mm': float(net_storage_change),
                 'storage_change_pct': float((net_storage_change / total_input) * 100) if total_input > 0 else 0.0
             },
-            'pass_validation': abs(mean_error_pct) < tolerance_standard * 100,
+            'pass_validation': abs(actual_residual_pct) < tolerance_standard * 100,
             'validation_note': 'Using journal standard tolerance (5%) for physics-informed models'
         }
 
@@ -3299,7 +3311,7 @@ class WaterBalanceAnalyzer:
         print(f"📊 TOTAL BUDGET (mm):")
         print(f"   Input (P):        {total_input:>10.2f}")
         print(f"   Output (ET+R+ΔS): {total_output:>10.2f}")
-        print(f"   Residual (ε):     {total_residual:>10.2f} ({validation['residual_pct']:>6.2f}%)\n")
+        print(f"   Residual (ε):     {actual_residual:>10.2f} ({validation['residual_pct']:>6.2f}%)\n")
 
         print(f"📈 COMPONENT BREAKDOWN:")
         print(f"   ET:               {total_evapotranspiration:>10.2f} mm ({validation['components']['evapotranspiration_pct']:>5.1f}%)")

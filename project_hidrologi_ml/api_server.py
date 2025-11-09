@@ -355,6 +355,39 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             return [f"âš ï¸ Tidak dapat generate saran: {str(e)}"]
 
+    def safe_get_value(self, df, column, agg_func='mean', default="Data tidak tersedia", format_str="{:.2f}"):
+        """Safely get value from DataFrame with fallback"""
+        try:
+            if column not in df.columns:
+                return default
+            
+            series = df[column]
+            if series.isna().all() or len(series) == 0:
+                return default
+            
+            if agg_func == 'mean':
+                value = series.mean()
+            elif agg_func == 'sum':
+                value = series.sum()
+            elif agg_func == 'max':
+                value = series.max()
+            elif agg_func == 'min':
+                value = series.min()
+            elif agg_func == 'last':
+                value = series.iloc[-1]
+            elif agg_func == 'first':
+                value = series.iloc[0]
+            else:
+                return default
+            
+            if pd.isna(value):
+                return default
+            
+            return format_str.format(value)
+        except Exception as e:
+            print(f"⚠️ Error in safe_get_value for column {column}: {e}")
+            return default
+
     def generate_summary_text(self, csv_file, monthly_file, validation_file, job_data):
         """Generate summary text dari hasil analisis - COMPREHENSIVE VERSION"""
         
@@ -431,24 +464,24 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     print(f"âš ï¸ Using legacy column name 'reservoir' (renaming to 'reservoir')")
                     df.rename(columns={'reservoir': 'reservoir'}, inplace=True)
                 
-                # Statistik Data
+                # Statistik Data - WITH SAFE CHECKS USING HELPER FUNCTION
                 summary["statistik_data"] = {
-                    "total_hari": len(df),
+                    "total_hari": len(df) if not df.empty else 0,
                     "curah_rainfall": {
-                        "rata_rata": f"{df['rainfall'].mean():.2f} mm/hari" if 'rainfall' in df.columns else "N/A",
-                        "maximum": f"{df['rainfall'].max():.2f} mm" if 'rainfall' in df.columns else "N/A",
-                        "minimum": f"{df['rainfall'].min():.2f} mm" if 'rainfall' in df.columns else "N/A",
-                        "total": f"{df['rainfall'].sum():.2f} mm" if 'rainfall' in df.columns else "N/A"
+                        "rata_rata": self.safe_get_value(df, 'rainfall', 'mean', format_str="{:.2f} mm/hari"),
+                        "maximum": self.safe_get_value(df, 'rainfall', 'max', format_str="{:.2f} mm"),
+                        "minimum": self.safe_get_value(df, 'rainfall', 'min', format_str="{:.2f} mm"),
+                        "total": self.safe_get_value(df, 'rainfall', 'sum', format_str="{:.2f} mm")
                     },
                     "volume_reservoir": {
-                        "rata_rata": f"{df['reservoir'].mean():.2f} mm" if 'reservoir' in df.columns else "N/A",
-                        "maximum": f"{df['reservoir'].max():.2f} mm" if 'reservoir' in df.columns else "N/A",
-                        "minimum": f"{df['reservoir'].min():.2f} mm" if 'reservoir' in df.columns else "N/A",
-                        "akhir_periode": f"{df['reservoir'].iloc[-1]:.2f} mm" if 'reservoir' in df.columns and len(df) > 0 else "N/A"
+                        "rata_rata": self.safe_get_value(df, 'reservoir', 'mean', format_str="{:.2f} mm"),
+                        "maximum": self.safe_get_value(df, 'reservoir', 'max', format_str="{:.2f} mm"),
+                        "minimum": self.safe_get_value(df, 'reservoir', 'min', format_str="{:.2f} mm"),
+                        "akhir_periode": self.safe_get_value(df, 'reservoir', 'last', format_str="{:.2f} mm")
                     },
                     "reliability_sistem": {
-                        "rata_rata": f"{df['reliability'].mean() * 100:.1f}%" if 'reliability' in df.columns else "N/A",
-                        "status": self.get_reliability_status(df['reliability'].mean() * 100 if 'reliability' in df.columns else 0)
+                        "rata_rata": self.safe_get_value(df, 'reliability', 'mean', format_str="{:.1f}%", default="Data tidak tersedia") if 'reliability' not in df.columns else f"{df['reliability'].mean() * 100:.1f}%",
+                        "status": self.get_reliability_status(df['reliability'].mean() * 100 if 'reliability' in df.columns and not df['reliability'].isna().all() else 0)
                     }
                 }
                 
@@ -2159,9 +2192,9 @@ def run_hidrologi_process(job_id, params, result_dir):
                 print("FILE COMPLETENESS CHECK:")
                 print(f"{'='*80}")
                 
-                missing_png = sevapotranspiration(expected_files['png']) - sevapotranspiration(png_files)
-                missing_csv = sevapotranspiration(expected_files['csv']) - sevapotranspiration(csv_files)
-                missing_json = sevapotranspiration(expected_files['json']) - sevapotranspiration(json_files)
+                missing_png = set(expected_files['png']) - set(png_files)
+                missing_csv = set(expected_files['csv']) - set(csv_files)
+                missing_json = set(expected_files['json']) - set(json_files)
                 
                 if missing_png:
                     print(f"âš ï¸  Missing PNG files: {', '.join(missing_png)}")
