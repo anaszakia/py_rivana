@@ -107,13 +107,13 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
     ]
     df_gee_raw = df_gee_raw[column_order]
     
-    # Determine output file path
+    # Determine output file path (standardized names for API compatibility)
     if output_dir:
-        gee_raw_file = os.path.join(output_dir, 'RIVANA_Data_GEE.csv')
-        metadata_file = os.path.join(output_dir, 'RIVANA_Metadata_GEE.json')
+        gee_raw_file = os.path.join(output_dir, 'GEE_Raw_Data.csv')
+        metadata_file = os.path.join(output_dir, 'GEE_Data_Metadata.json')
     else:
-        gee_raw_file = 'RIVANA_Data_GEE.csv'
-        metadata_file = 'RIVANA_Metadata_GEE.json'
+        gee_raw_file = 'GEE_Raw_Data.csv'
+        metadata_file = 'GEE_Data_Metadata.json'
     
     # Save CSV
     df_gee_raw.to_csv(gee_raw_file, index=False, float_format='%.4f')
@@ -2113,8 +2113,24 @@ class MLHydroSimulator:
                     k_folds = min(5, len(observed) // 2)  # Adaptive k-folds
                     validator.cross_validate(observed, simulated, f"ML-Hydro-{target}", k_folds=k_folds)
         
-        # Generate validation report - simpan di output_dir
-        validator.generate_validation_report('RIVANA_Model_Validation_Report.json', output_dir=self.output_dir)
+        # Generate validation report - simpan di output_dir dengan error handling
+        try:
+            validator.generate_validation_report('RIVANA_Model_Validation_Report.json', output_dir=self.output_dir)
+        except Exception as e:
+            print(f"⚠️ Warning: Failed to generate validation report: {str(e)}")
+            # Create minimal report on error
+            minimal_report = {
+                'status': 'ERROR',
+                'message': f'Failed to generate full report: {str(e)}',
+                'summary': {
+                    'total_models': len(validator.metrics) if hasattr(validator, 'metrics') else 0,
+                    'models_passed': 0,
+                    'models_marginal': 0,
+                    'models_failed': 0
+                }
+            }
+            output_path = os.path.join(self.output_dir, 'RIVANA_Model_Validation_Report.json') if self.output_dir else 'RIVANA_Model_Validation_Report.json'
+            safe_json_dump(minimal_report, output_path)
         
         # Store validator untuk future use
         self.validator = validator
@@ -3503,7 +3519,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
         print(f"❌ Error calculating baseline methods: {str(e)}")
         import traceback
         traceback.print_exc()
-        return {
+        error_result = {
             'error': str(e),
             'status': 'FAILED',
             'conclusion': {
@@ -3512,6 +3528,11 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
                 'recommendation': 'Check input data quality and completeness'
             }
         }
+        # Save error result to file
+        import os
+        output_file = os.path.join(output_dir, 'RIVANA_Baseline_Comparison.json')
+        safe_json_dump(error_result, output_file)
+        return error_result
     
     # Merge dengan df_hasil untuk comparison
     df_comparison = df_hasil.copy()
@@ -3544,7 +3565,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
         print(f"❌ Error during comparison: {str(e)}")
         import traceback
         traceback.print_exc()
-        return {
+        error_result = {
             'error': str(e),
             'status': 'FAILED',
             'conclusion': {
@@ -3553,6 +3574,11 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
                 'recommendation': 'Check that runoff data exists in both ML and baseline results'
             }
         }
+        # Save error result to file
+        import os
+        output_file = os.path.join(output_dir, 'RIVANA_Baseline_Comparison.json')
+        safe_json_dump(error_result, output_file)
+        return error_result
     
     # Compile comprehensive report
     comprehensive_results = {
@@ -5805,6 +5831,17 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     # ========== BASELINE COMPARISON (PRIORITAS 3) ==========
     print_section("BASELINE COMPARISON: ML vs TRADITIONAL METHODS", "📊")
     
+    # Initialize default baseline results in case of error
+    baseline_results = {
+        'status': 'SKIPPED',
+        'message': 'Baseline comparison was skipped or failed',
+        'conclusion': {
+            'status': 'SKIPPED',
+            'message': 'Baseline comparison not available',
+            'recommendation': 'Run manual comparison if needed'
+        }
+    }
+    
     try:
         # Run baseline comparison jika validator tersedia
         if hasattr(ml_hydro, 'validator') and ml_hydro.validator:
@@ -5841,12 +5878,31 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
         else:
             print("⚠️  Validator not available, skipping baseline comparison")
             print("   Ensure ML model training completed successfully")
+            # Save skipped status
+            safe_json_dump(baseline_results, os.path.join(save_dir, 'RIVANA_Baseline_Comparison.json'))
             
     except Exception as e:
         print(f"⚠️  Error during baseline comparison: {str(e)}")
         import traceback
         traceback.print_exc()
         print("   Continuing with remaining tasks...")
+        
+        # Create error result and save it
+        baseline_results = {
+            'status': 'ERROR',
+            'error': str(e),
+            'message': f'Baseline comparison failed: {str(e)}',
+            'conclusion': {
+                'status': 'ERROR',
+                'message': 'Comparison failed due to error',
+                'recommendation': 'Check logs and input data quality'
+            }
+        }
+        # Save error result
+        safe_json_dump(baseline_results, os.path.join(save_dir, 'RIVANA_Baseline_Comparison.json'))
+    
+    # Ensure baseline_results is always in all_validation_metrics
+    all_validation_metrics['baseline_comparison'] = baseline_results
 
     print_section("WATER BALANCE ANALYSIS SELESAI", "✅")
 

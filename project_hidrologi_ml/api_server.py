@@ -549,8 +549,8 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             # ========== BACA FILE JSON TAMBAHAN ==========
             job_dir = os.path.dirname(csv_file) if csv_file else ""
             
-            # 1. Model Validation JSON
-            model_validation_file = os.path.join(job_dir, 'Model_Validation_Complete.json')
+            # 1. Model Validation JSON (FIXED: Use correct filename)
+            model_validation_file = os.path.join(job_dir, 'RIVANA_Model_Validation_Complete.json')
             if os.path.exists(model_validation_file):
                 try:
                     with open(model_validation_file, 'r') as f:
@@ -567,8 +567,8 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 except Exception as e:
                     print(f"Warning: Could not read model validation file: {e}")
             
-            # 2. Baseline Comparison JSON
-            baseline_file = os.path.join(job_dir, 'baseline_comparison.json')
+            # 2. Baseline Comparison JSON (FIXED: Use correct filename)
+            baseline_file = os.path.join(job_dir, 'RIVANA_Baseline_Comparison.json')
             if os.path.exists(baseline_file):
                 try:
                     with open(baseline_file, 'r') as f:
@@ -1488,10 +1488,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     result_dir = get_job_result_path(job_id)
                     
-                    # Baca file CSV untuk generate summary (UPDATED - gunakan nama RIVANA)
-                    csv_file = os.path.join(result_dir, 'Complete_Results.csv')
-                    monthly_file = os.path.join(result_dir, 'Monthly_WaterBalance.csv')
-                    validation_file = os.path.join(result_dir, 'WaterBalance_Validation.json')
+                    # Baca file CSV untuk generate summary (FIXED: Use correct RIVANA filenames)
+                    csv_file = os.path.join(result_dir, 'RIVANA_Hasil_Complete.csv')
+                    monthly_file = os.path.join(result_dir, 'RIVANA_Monthly_WaterBalance.csv')
+                    validation_file = os.path.join(result_dir, 'RIVANA_WaterBalance_Validation.json')
                     
                     summary_text = self.generate_summary_text(csv_file, monthly_file, validation_file, RESULTS[job_id])
                     
@@ -2132,25 +2132,28 @@ def run_hidrologi_process(job_id, params, result_dir):
                 
                 RESULTS[job_id]["progress"] = 90
                 
-                # Expected output files dari main_weap_ml.py
+                # Expected output files dari main_weap_ml.py (FIXED: menggunakan nama file yang sebenarnya)
                 expected_files = {
                     'png': [
-                        'Hydrology_Dashboard.png',
-                        'Enhanced_Dashboard.png',
-                        'Water_Balance_Dashboard.png',
-                        'Morphometry_Summary.png',
-                        'Morphology_Ecology_Dashboard.png',
-                        'Baseline_Comparison.png'
+                        'RIVANA_Dashboard.png',
+                        'RIVANA_Enhanced_Dashboard.png',
+                        'RIVANA_Water_Balance_Dashboard.png',
+                        'RIVANA_Morphometry_Summary.png',
+                        'RIVANA_Morphology_Ecology_Dashboard.png',
+                        'RIVANA_Baseline_Comparison.png'
                     ],
                     'csv': [
-                        'Complete_Results.csv',
-                        'Monthly_WaterBalance.csv',
+                        'RIVANA_Hasil_Complete.csv',
+                        'RIVANA_Monthly_WaterBalance.csv',
+                        'RIVANA_Prediksi_30Hari.csv',
                         'GEE_Raw_Data.csv'  # ⭐ NEW: Raw GEE data
                     ],
                     'json': [
-                        'WaterBalance_Validation.json',
-                        'Model_Validation_Complete.json',
-                        'baseline_comparison.json'
+                        'RIVANA_WaterBalance_Validation.json',
+                        'RIVANA_Model_Validation_Complete.json',
+                        'RIVANA_Baseline_Comparison.json',
+                        'RIVANA_Model_Validation_Report.json',
+                        'GEE_Data_Metadata.json'  # ⭐ NEW: GEE metadata
                     ]
                 }
                 
