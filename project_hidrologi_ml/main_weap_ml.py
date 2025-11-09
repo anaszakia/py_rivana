@@ -83,7 +83,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
         morphology_data: Dictionary with morphology info
         output_dir: Output directory (optional)
     
-    Revapotranspirationurns:
+    Returns:
         str: Path to saved CSV file
     """
     import os
@@ -97,8 +97,8 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
     df_gee_raw.insert(2, 'latitude', lat)
     
     # Add morphology data
-    df_gee_raw['elevation_m'] = morphology_data.gevapotranspiration('elevation', 0)
-    df_gee_raw['slope_degree'] = morphology_data.gevapotranspiration('slope_mean', 0)
+    df_gee_raw['elevation_m'] = morphology_data.get('elevation', 0)
+    df_gee_raw['slope_degree'] = morphology_data.get('slope_mean', 0)
     
     # Reorder columns
     column_order = [
@@ -107,7 +107,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
     ]
     df_gee_raw = df_gee_raw[column_order]
     
-    # Devapotranspirationermine output file path
+    # Determine output file path
     if output_dir:
         gee_raw_file = os.path.join(output_dir, 'GEE_Raw_Data.csv')
         metadata_file = os.path.join(output_dir, 'GEE_Data_Metadata.json')
@@ -129,8 +129,8 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
         'location': {
             'longitude': float(lon),
             'latitude': float(lat),
-            'elevation_m': float(morphology_data.gevapotranspiration('elevation', 0)),
-            'slope_degree': float(morphology_data.gevapotranspiration('slope_mean', 0))
+            'elevation_m': float(morphology_data.get('elevation', 0)),
+            'slope_degree': float(morphology_data.get('slope_mean', 0))
         },
         'period': {
             'start_date': str(df_gee_raw['date'].min()),
@@ -165,7 +165,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
             'ndvi': {
                 'name': 'MODIS NDVI',
                 'source': 'MODIS/006/MOD13Q1',
-                'description': 'Normalized Difference Vegevapotranspirationation Index (16-day composite)',
+                'description': 'Normalized Difference Vegetation Index (16-day composite)',
                 'unit': 'dimensionless (-1 to 1)',
                 'resolution': '250 m',
                 'provider': 'NASA EOSDIS'
@@ -181,7 +181,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
                 'name': 'SRTM DEM',
                 'source': 'USGS/SRTMGL1_003',
                 'description': 'Shuttle Radar Topography Mission Digital Elevation Model',
-                'unit': 'mevapotranspirationers',
+                'unit': 'meters',
                 'resolution': '30 m',
                 'provider': 'USGS'
             }
@@ -224,12 +224,12 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
             'date': 'Date of observation (YYYY-MM-DD)',
             'longitude': 'Longitude coordinate (decimal degrees)',
             'latitude': 'Latitude coordinate (decimal degrees)',
-            'elevation_m': 'Elevation above sea level (mevapotranspirationers)',
+            'elevation_m': 'Elevation above sea level (meters)',
             'slope_degree': 'Average slope (degrees)',
             'rainfall': 'Daily rainfall (mm/day)',
             'temperature': 'Average air temperature (°C)',
             'soil_moisture': 'Surface soil moisture (volumetric fraction 0-1)',
-            'ndvi': 'Normalized Difference Vegevapotranspirationation Index (-1 to 1)',
+            'ndvi': 'Normalized Difference Vegetation Index (-1 to 1)',
             'evapotranspiration': 'Evapotranspiration estimated by ML (mm/day)'
         }
     }
@@ -270,8 +270,8 @@ class WEAPConfig:
     forecast_days = 30
 
     # Morphology Parameterers
-    channel_width_base = 25.0  # mevapotranspirationer
-    channel_depth_base = 3.0   # mevapotranspirationer
+    channel_width_base = 25.0  # meter
+    channel_depth_base = 3.0   # meter
     manning_n = 0.035          # roughness coefficient
     critical_shear_stress = 3.0  # Pa
 
@@ -283,7 +283,7 @@ class WEAPConfig:
     # Sediment Parameterers
     soil_erodibility = 0.3     # K factor USLE
     slope_factor = 1.5         # LS factor
-    cover_factor = 0.2         # C factor (vegevapotranspirationasi)
+    cover_factor = 0.2         # C factor (vegetasi)
 
     # Threshold Kondisi
     kekeringan_threshold = 5.0  # mm/bulan
@@ -325,9 +325,9 @@ class MLLabelGenerator:
 
     def generate_physics_based_labels(self, df):
         """Generate initial labels berbasis physics untuk bootstrap ML"""
-        # Curve Number Mevapotranspirationhod untuk runoff
+        # Curve Number Method untuk runoff
         CN = 75  # Curve number average
-        S = (25400 / CN) - 254  # Potential maximum revapotranspirationention
+        S = (25400 / CN) - 254  # Potential maximum retention
         df['runoff'] = np.where(
             df['rainfall'] > 0.2 * S,
             ((df['rainfall'] - 0.2 * S) ** 2) / (df['rainfall'] + 0.8 * S),
@@ -366,10 +366,10 @@ class MLLabelGenerator:
         df = self.generate_physics_based_labels(df)
 
         features = ['rainfall', 'evapotranspiration', 'temperature', 'ndvi', 'soil_moisture']
-        targevapotranspirations = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
+        targets = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
 
         X = self.scaler_X.fit_transform(df[features].values)
-        y = self.scaler_y.fit_transform(df[targevapotranspirations].values)
+        y = self.scaler_y.fit_transform(df[targets].values)
 
         self.model = self.build_model(len(features))
 
@@ -389,9 +389,9 @@ class MLLabelGenerator:
         y_pred = self.model.predict(X, verbose=0)
         y_denorm = self.scaler_y.inverse_transform(y_pred)
 
-        targevapotranspirations = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
-        for i, targevapotranspiration in enumerate(targevapotranspirations):
-            df[targevapotranspiration] = np.clip(y_denorm[:, i], 0, None)
+        targets = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
+        for i, target in enumerate(targets):
+            df[target] = np.clip(y_denorm[:, i], 0, None)
 
         return df
 
@@ -415,7 +415,7 @@ class MLSedimentTransport:
             Dense(48, activation='relu'),
             Dropout(0.2),
             Dense(32, activation='relu'),
-            Dense(4)  # [suspended_sedimentt, bedload, erosionon_rate, deposition_rate]
+            Dense(4)  # [suspended_sediment, bedload, erosion_rate, deposition_rate]
         ])
         model.compile(optimizer=Adam(0.001), loss='mse', metrics=['mae'])
         return model
@@ -449,7 +449,7 @@ class MLSedimentTransport:
         """Physics-based sedimentt transport untuk training labels"""
 
         # 1. Erosion dari lahan (USLE)
-        df['erosionon_rate'] = self.calculate_usle(df)
+        df['erosion_rate'] = self.calculate_usle(df)
 
         # 2. Sediment delivery ratio (SDR)
         # Simplified: fungsi dari jarak, slope, land cover
@@ -459,11 +459,11 @@ class MLSedimentTransport:
         # Rouse equation (simplified)
         # C = f(discharge, shear stress)
         stream_power = df['runoff'] * self.morphology['slope_mean'] * 9.81
-        df['suspended_sedimentt'] = (df['erosionon_rate'] * SDR *
+        df['suspended_sediment'] = (df['erosion_rate'] * SDR *
                                     (stream_power / 100) ** 0.5).clip(0, 50)
 
         # 4. Bedload transport
-        # Meyer-Pevapotranspirationer Muller (simplified)
+        # Meyer-Peter Muller (simplified)
         shear_stress = 9810 * df['runoff'] / 1000 * self.morphology['slope_mean'] / 100
         excess_shear = (shear_stress - config.critical_shear_stress).clip(0)
         df['bedload'] = 8 * (excess_shear ** 1.5)
@@ -474,7 +474,7 @@ class MLSedimentTransport:
         flow_velocity = df['runoff'] * 0.1  # Simplified
         df['deposition_rate'] = np.where(
             flow_velocity < settling_velocity,
-            df['suspended_sedimentt'] * 0.3,
+            df['suspended_sediment'] * 0.3,
             0
         )
 
@@ -488,10 +488,10 @@ class MLSedimentTransport:
         df = self.calculate_sedimentt_transport(df)
 
         features = ['rainfall', 'runoff', 'evapotranspiration', 'ndvi', 'soil_moisture', 'temperature']
-        targevapotranspirations = ['suspended_sedimentt', 'bedload', 'erosionon_rate', 'deposition_rate']
+        targets = ['suspended_sediment', 'bedload', 'erosion_rate', 'deposition_rate']
 
         X = self.scaler_X.fit_transform(df[features].values)
-        y = self.scaler_y.fit_transform(df[targevapotranspirations].values)
+        y = self.scaler_y.fit_transform(df[targets].values)
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, shuffle=False
@@ -527,12 +527,12 @@ class MLSedimentTransport:
         predictions = self.model.predict(X, verbose=0)
         y_denorm = self.scaler_y.inverse_transform(predictions)
 
-        targevapotranspirations = ['suspended_sedimentt', 'bedload', 'erosionon_rate', 'deposition_rate']
-        for i, targevapotranspiration in enumerate(targevapotranspirations):
-            df[targevapotranspiration] = np.clip(y_denorm[:, i], 0, None)
+        targets = ['suspended_sediment', 'bedload', 'erosion_rate', 'deposition_rate']
+        for i, target in enumerate(targets):
+            df[target] = np.clip(y_denorm[:, i], 0, None)
 
         # Tambahan: Total sedimentt load
-        df['total_sedimentt'] = df['suspended_sedimentt'] + df['bedload']
+        df['total_sedimentt'] = df['suspended_sediment'] + df['bedload']
 
         # Channel morphology response (simplified)
         df['channel_width'] = config.channel_width_base * (1 + df['total_sedimentt'] / 50)
@@ -562,7 +562,7 @@ class MLETEstimator:
         return model
 
     def train(self, df):
-        """Train dengan Penman-Monteith sebagai targevapotranspiration"""
+        """Train dengan Penman-Monteith sebagai target"""
         print("🤖 Melatih penghitung penguapan air...")
 
         # Generate reference ET menggunakan Penman-Monteith (simplified)
@@ -597,7 +597,7 @@ class MLETEstimator:
         # Slope of saturation vapor pressure curve
         delta = (4098 * es) / ((df['temperature'] + 237.3) ** 2)
 
-        # Nevapotranspiration radiation (estimate)
+        # Net radiation (estimate)
         Rn = 15 * (1 + 0.5 * df['ndvi'])  # MJ/m²/day
 
         # Soil heat flux (negligible for daily)
@@ -661,7 +661,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
             print(f"❌ Authentication failed: {str(auth_error)}")
             raise Exception(f"Cannot initialize Google Earth Engine. Error: {str(auth_error)}")
 
-    lokasi = ee.Geomevapotranspirationry.Point([lon, lat])
+    lokasi = ee.Geometry.Point([lon, lat])
     buffer = lokasi.buffer(5000)
     
     print(f"\n📍 Lokasi: {lat:.4f}°N, {lon:.4f}°E")
@@ -699,7 +699,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
         .filterBounds(buffer) \
         .select('ssm')
     
-    # ⚡ SINGLE gevapotranspirationInfo() call untuk semua data - SUPER CEPAT!
+    # ⚡ SINGLE getInfo() call untuk semua data - SUPER CEPAT!
     print("⚡ Processing all data in ONE batch request...")
     
     def extract_daily_values(collection, var_name, scale_factor=1, offset=0):
@@ -707,10 +707,10 @@ def fetch_gee_data(lon, lat, start_date, end_date):
         def process_image(img):
             val = img.reduceRegion(
                 reducer=ee.Reducer.mean(),
-                geomevapotranspirationry=buffer,
+                geometry=buffer,
                 scale=1000,
                 maxPixels=1e9
-            ).values().gevapotranspiration(0)
+            ).values().get(0)
             
             # Apply scaling
             val = ee.Number(val).multiply(scale_factor).add(offset)
@@ -731,10 +731,10 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     # ⚡ SINGLE API CALL untuk semua data!
     print("📡 Downloading all data in ONE request (this may take 10-30 seconds)...")
     
-    chirps_data = chirps_fc.gevapotranspirationInfo()
-    era5_data = era5_fc.gevapotranspirationInfo()
-    modis_data = modis_fc.gevapotranspirationInfo()
-    smap_data = smap_fc.gevapotranspirationInfo()
+    chirps_data = chirps_fc.getInfo()
+    era5_data = era5_fc.getInfo()
+    modis_data = modis_fc.getInfo()
+    smap_data = smap_fc.getInfo()
     
     print("✅ All data downloaded successfully!")
 
@@ -742,13 +742,13 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     print("\n📊 Parsing data...")
     
     # Convert to dictionaries
-    chirps_dict = {f['properties']['date']: f['properties'].gevapotranspiration('rainfall', 0) 
+    chirps_dict = {f['properties']['date']: f['properties'].get('rainfall', 0) 
                    for f in chirps_data['features']}
-    era5_dict = {f['properties']['date']: f['properties'].gevapotranspiration('temperature', 25) 
+    era5_dict = {f['properties']['date']: f['properties'].get('temperature', 25) 
                  for f in era5_data['features']}
-    modis_dict = {f['properties']['date']: f['properties'].gevapotranspiration('ndvi', 0.5) 
+    modis_dict = {f['properties']['date']: f['properties'].get('ndvi', 0.5) 
                   for f in modis_data['features']}
-    smap_dict = {f['properties']['date']: f['properties'].gevapotranspiration('soil_moisture', 0.3) 
+    smap_dict = {f['properties']['date']: f['properties'].get('soil_moisture', 0.3) 
                  for f in smap_data['features']}
     
     # Create date range and merge all data
@@ -759,10 +759,10 @@ def fetch_gee_data(lon, lat, start_date, end_date):
         date_str = date.strftime('%Y-%m-%d')
         data_list.append({
             'date': date_str,
-            'rainfall': chirps_dict.gevapotranspiration(date_str, 0),
-            'temperature': era5_dict.gevapotranspiration(date_str, 25),
-            'ndvi': modis_dict.gevapotranspiration(date_str, 0.5),
-            'soil_moisture': smap_dict.gevapotranspiration(date_str, 0.3)
+            'rainfall': chirps_dict.get(date_str, 0),
+            'temperature': era5_dict.get(date_str, 25),
+            'ndvi': modis_dict.get(date_str, 0.5),
+            'soil_moisture': smap_dict.get(date_str, 0.3)
         })
     
     df = pd.DataFrame(data_list)
@@ -788,7 +788,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     print(f"   🌿 NDVI average: {df['ndvi'].mean():.3f}")
     print(f"   💧 Humidity Soil: {df['soil_moisture'].mean():.2f}")
     print(f"\n⚡ OPTIMASI: {len(dates)} hari data fetched dalam 4 API calls saja!")
-    print(f"   (vs mevapotranspirationode lama: {len(dates) * 4} API calls = {len(dates)}x lebih lambat)")
+    print(f"   (vs method lama: {len(dates) * 4} API calls = {len(dates)}x lebih lambat)")
 
     return df
 
@@ -799,7 +799,7 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
     """Ambil data morfologi dari GEE untuk analisis"""
     print_section("MENGAMBIL DATA MORFOLOGI", "🏔️")
 
-    lokasi = ee.Geomevapotranspirationry.Point([lon, lat])
+    lokasi = ee.Geometry.Point([lon, lat])
     buffer = lokasi.buffer(buffer_size)
 
     # DEM - SRTM 30m
@@ -821,7 +821,7 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
     # Soil Properties - SoilGrids
     # Menggunakan proxy: clay content untuk erodibility
 
-    print("   📊 Menghitung parameterer morfomevapotranspirationri...")
+    print("   📊 Menghitung parameter morfometri...")
 
     # Sample points untuk analisis statistik
     sample_points = buffer.bounds().buffer(-100).coordinates()
@@ -833,20 +833,20 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
         ).combine(
             ee.Reducer.minMax(), '', True
         ),
-        geomevapotranspirationry=buffer,
+        geometry=buffer,
         scale=30,
         maxPixels=1e9
-    ).gevapotranspirationInfo()
+    ).getInfo()
 
     morphology_data = {
-        'elevation_mean': stats.gevapotranspiration('elevation_mean', 0),
-        'elevation_std': stats.gevapotranspiration('elevation_stdDev', 0),
-        'elevation_min': stats.gevapotranspiration('elevation_min', 0),
-        'elevation_max': stats.gevapotranspiration('elevation_max', 0),
-        'slope_mean': stats.gevapotranspiration('slope_mean', 0),
-        'slope_std': stats.gevapotranspiration('slope_stdDev', 0),
-        'aspect_mean': stats.gevapotranspiration('aspect_mean', 0),
-        'relief': stats.gevapotranspiration('elevation_max', 0) - stats.gevapotranspiration('elevation_min', 0)
+        'elevation_mean': stats.get('elevation_mean', 0),
+        'elevation_std': stats.get('elevation_stdDev', 0),
+        'elevation_min': stats.get('elevation_min', 0),
+        'elevation_max': stats.get('elevation_max', 0),
+        'slope_mean': stats.get('slope_mean', 0),
+        'slope_std': stats.get('slope_stdDev', 0),
+        'aspect_mean': stats.get('aspect_mean', 0),
+        'relief': stats.get('elevation_max', 0) - stats.get('elevation_min', 0)
     }
 
     # Tambahan: Extract raster untuk spatial analysis
@@ -863,16 +863,16 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
 # ==========================================
 def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
     """
-    Buat pevapotranspirationa aliran sungai interaktif dari Google Earth Engine
+    Buat peta aliran sungai interaktif dari Google Earth Engine
     
     Args:
         lon: Longitude koordinat analisis
         lat: Latitude koordinat analisis
-        output_dir: Direktori output untuk saving pevapotranspirationa
-        buffer_size: Ukuran buffer area analisis (mevapotranspirationer), default 10km
+        output_dir: Direktori output untuk saving peta
+        buffer_size: Ukuran buffer area analisis (meter), default 10km
     
-    Revapotranspirationurns:
-        dict: Informasi pevapotranspirationa yang dibuat
+    Returns:
+        dict: Informasi peta yang dibuat
     """
     print_section("MEMBUAT PETA ALIRAN SUNGAI", "🌊")
     
@@ -880,7 +880,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         import io
         from PIL import Image
         
-        lokasi = ee.Geomevapotranspirationry.Point([lon, lat])
+        lokasi = ee.Geometry.Point([lon, lat])
         buffer_zone = lokasi.buffer(buffer_size)
         
         print(f"\n📍 Lokasi Analisis: {lat:.4f}°N, {lon:.4f}°E")
@@ -929,20 +929,20 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         print("   ✅ Semua data hidrologi successfully disiapkan")
         
         # ========== 2. BUAT PETA INTERAKTIF DENGAN FOLIUM ==========
-        print("\n🗺️ Membuat pevapotranspirationa interaktif...")
+        print("\n🗺️ Membuat peta interaktif...")
         
-        # Inisialisasi pevapotranspirationa dengan center di lokasi analisis
+        # Inisialisasi peta dengan center di lokasi analisis
         m = folium.Map(
             location=[lat, lon],
             zoom_start=12,
-            tiles='OpenStreevapotranspirationMap',
+            tiles='OpenStreetMap',
             control_scale=True
         )
         
         # Add alternative basemaps dengan attribution yang benar
         folium.TileLayer(
             tiles='https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.jpg',
-            attr='Map tiles by Stadia Maps, under CC BY 4.0. Data by OpenStreevapotranspirationMap, under ODbL.',
+            attr='Map tiles by Stadia Maps, under CC BY 4.0. Data by OpenStreetMap, under ODbL.',
             name='Terrain',
             overlay=False,
             control=True
@@ -950,7 +950,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         
         folium.TileLayer(
             tiles='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-            attr='© OpenStreevapotranspirationMap contributors © CARTO',
+            attr='© OpenStreetMap contributors © CARTO',
             name='CartoDB Light',
             overlay=False,
             control=True
@@ -960,7 +960,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         
         # Helper function untuk add EE layer ke Folium
         def add_ee_layer(self, ee_image_object, vis_params, name, show=True, opacity=1):
-            map_id_dict = ee.Image(ee_image_object).gevapotranspirationMapId(vis_params)
+            map_id_dict = ee.Image(ee_image_object).getMapId(vis_params)
             folium.raster_layers.TileLayer(
                 tiles=map_id_dict['tile_fetcher'].url_format,
                 attr='Google Earth Engine',
@@ -982,7 +982,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
             }
             m.add_ee_layer(dem, dem_vis, 'Elevasi (DEM)', show=False, opacity=0.6)
-            print("   ✅ Layer DEM ditambahkan ke pevapotranspirationa")
+            print("   ✅ Layer DEM ditambahkan ke peta")
         
         # Layer 2: Flow Accumulation (Jaringan Sungai)
         if flow_acc is not None:
@@ -992,7 +992,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'palette': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
             }
             m.add_ee_layer(flow_acc, flow_vis, 'Akumulasi Aliran', show=True, opacity=0.7)
-            print("   ✅ Layer Flow Accumulation ditambahkan ke pevapotranspirationa")
+            print("   ✅ Layer Flow Accumulation ditambahkan ke peta")
         
         # Layer 3: Water Occurrence (Badan Air Permanen)
         if water_occurrence is not None:
@@ -1002,7 +1002,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'palette': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
             }
             m.add_ee_layer(water_occurrence, water_vis, 'Kejadian Air (%)', show=True, opacity=0.6)
-            print("   ✅ Layer Water Occurrence ditambahkan ke pevapotranspirationa")
+            print("   ✅ Layer Water Occurrence ditambahkan ke peta")
         
         # ========== 4. TAMBAHKAN MARKER & INFORMASI ==========
         
@@ -1086,9 +1086,9 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         
         # Verify HTML file was created successfully
         if os.path.exists(html_path):
-            file_size = os.path.gevapotranspirationsize(html_path)
+            file_size = os.path.getsize(html_path)
             if file_size > 1000:  # Minimal 1KB untuk file valid
-                print(f"\n✅ Pevapotranspirationa HTML interaktif saved: {os.path.basename(html_path)}")
+                print(f"\n✅ Peta HTML interaktif saved: {os.path.basename(html_path)}")
                 print(f"   📏 Ukuran file: {file_size/1024:.1f} KB")
             else:
                 print(f"\n⚠️ File HTML terlalu kecil ({file_size} bytes), mungkin ada error")
@@ -1096,7 +1096,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             print(f"\n❌ Error: File HTML tidak saved di {html_path}")
         
         # ========== 7. EXPORT SEBAGAI PNG (SCREENSHOT) ==========
-        print("\n📸 Membuat screenshot PNG dari pevapotranspirationa...")
+        print("\n📸 Membuat screenshot PNG dari peta...")
         
         try:
             # Coba gunakan selenium untuk screenshot
@@ -1111,7 +1111,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 chrome_options.add_argument('--window-size=1920,1080')
                 
                 driver = webdriver.Chrome(options=chrome_options)
-                driver.gevapotranspiration(f'file:///{os.path.abspath(html_path)}')
+                driver.get(f'file:///{os.path.abspath(html_path)}')
                 
                 import time
                 time.sleep(3)  # Wait for map to load
@@ -1124,19 +1124,19 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 png_created = True
                 
             except ImportError:
-                print("⚠️  Selenium not available, mencoba mevapotranspirationode alternatif...")
+                print("⚠️  Selenium not available, mencoba method alternatif...")
                 png_created = False
                 
             # Alternatif: Buat visualisasi REAL dengan data GEE
             if not png_created:
-                print("📊 Membuat visualisasi pevapotranspirationa sungai REAL dengan data GEE...")
+                print("📊 Membuat visualisasi peta sungai REAL dengan data GEE...")
                 
                 try:
                     # ========== AMBIL DATA RASTER DARI GEE ==========
                     print("   🔍 Mengambil data raster untuk visualisasi...")
                     
                     # Calculate bounds untuk area yang akan divisualisasi
-                    buffer_deg = buffer_size / 111000  # Convert mevapotranspirationer ke derajat (approx)
+                    buffer_deg = buffer_size / 111000  # Convert meter ke derajat (approx)
                     bounds = {
                         'west': lon - buffer_deg,
                         'east': lon + buffer_deg,
@@ -1147,7 +1147,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     # Download flow accumulation sebagai array
                     if flow_acc is not None:
                         try:
-                            # Gevapotranspiration thumbnail URL untuk flow accumulation
+                            # Get thumbnail URL untuk flow accumulation
                             flow_vis_params = {
                                 'min': 0,
                                 'max': 1000,
@@ -1156,7 +1156,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                                 'format': 'png'
                             }
                             
-                            flow_url = flow_acc.gevapotranspirationThumbURL(flow_vis_params)
+                            flow_url = flow_acc.getThumbURL(flow_vis_params)
                             print(f"   ✓ Flow accumulation URL generated")
                             
                             # Download image dari URL
@@ -1189,7 +1189,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                                 'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321']
                             }
                             
-                            dem_url = dem.gevapotranspirationThumbURL(dem_vis_params)
+                            dem_url = dem.getThumbURL(dem_vis_params)
                             print(f"   ✓ DEM URL generated")
                             
                             with urllib.request.urlopen(dem_url) as response:
@@ -1298,10 +1298,10 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     plt.close()
                     
                     # Verify file was created and has content
-                    if os.path.exists(png_path) and os.path.gevapotranspirationsize(png_path) > 10000:  # Min 10KB untuk real map
+                    if os.path.exists(png_path) and os.path.getsize(png_path) > 10000:  # Min 10KB untuk real map
                         print(f"✅ River map PNG saved: {os.path.basename(png_path)}")
-                        print(f"   📏 Ukuran file: {os.path.gevapotranspirationsize(png_path)/1024:.1f} KB")
-                        print(f"   🗺️ Pevapotranspirationa berisi visualisasi data GEE asli (DEM + Flow Accumulation)")
+                        print(f"   📏 Ukuran file: {os.path.getsize(png_path)/1024:.1f} KB")
+                        print(f"   🗺️ Peta berisi visualisasi data GEE asli (DEM + Flow Accumulation)")
                         png_created = True
                     else:
                         print("⚠️  PNG file terlalu kecil atau tidak valid")
@@ -1312,8 +1312,8 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     import traceback
                     traceback.print_exc()
                     
-                    # Fallback terakhir: Buat pevapotranspirationa sederhana dengan info
-                    print("   📝 Membuat pevapotranspirationa info sederhana sebagai fallback...")
+                    # Fallback terakhir: Buat peta sederhana dengan info
+                    print("   📝 Membuat peta info sederhana sebagai fallback...")
                     try:
                         fig, ax = plt.subplots(figsize=(12, 10), dpi=150, facecolor='white')
                         ax.set_facecolor('#e6f3ff')
@@ -1322,7 +1322,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                         ax.axis('off')
                         
                         # Title
-                        ax.text(5, 9, 'Pevapotranspirationa Aliran Sungai', 
+                        ax.text(5, 9, 'Peta Aliran Sungai', 
                                ha='center', va='top', fontsize=24, fontweight='bold', color='#003366')
                         
                         # Location
@@ -1334,8 +1334,8 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                                ha='center', va='top', fontsize=14, color='#666666')
                         
                         # Notice
-                        notice_text = '🗺️ Pevapotranspirationa Interaktif Tersedia!\n\n' \
-                                     'Buka file HTML untuk melihat pevapotranspirationa lengkap:\n' \
+                        notice_text = '🗺️ Peta Interaktif Tersedia!\n\n' \
+                                     'Buka file HTML untuk melihat peta lengkap:\n' \
                                      '• Visualisasi aliran sungai REAL\n' \
                                      '• Zoom in/out interaktif\n' \
                                      '• Toggle layer data\n' \
@@ -1363,7 +1363,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 
         except Exception as png_error:
             print(f"⚠️  Tidak dapat creating PNG: {str(png_error)}")
-            print("   Pevapotranspirationa HTML tevapotranspirationap tersedia dan dapat dibuka di browser")
+            print("   Peta HTML tetap tersedia dan dapat dibuka di browser")
             png_path = None
             png_created = False
         
@@ -1377,10 +1377,10 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     reducer=ee.Reducer.mean().combine(
                         ee.Reducer.minMax(), '', True
                     ),
-                    geomevapotranspirationry=buffer_zone,
+                    geometry=buffer_zone,
                     scale=90,
                     maxPixels=1e9
-                ).gevapotranspirationInfo()
+                ).getInfo()
             else:
                 flow_stats = {}
             
@@ -1388,10 +1388,10 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             if water_occurrence is not None:
                 water_stats = water_occurrence.reduceRegion(
                     reducer=ee.Reducer.mean(),
-                    geomevapotranspirationry=buffer_zone,
+                    geometry=buffer_zone,
                     scale=30,
                     maxPixels=1e9
-                ).gevapotranspirationInfo()
+                ).getInfo()
             else:
                 water_stats = {}
         except Exception as stats_error:
@@ -1399,7 +1399,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             flow_stats = {}
             water_stats = {}
         
-        # Devapotranspirationeksi band name yang digunakan (berbeda antara MERIT Hydro dan slope)
+        # Deteksi band name yang digunakan (berbeda antara MERIT Hydro dan slope)
         flow_band = 'upg' if 'upg_mean' in flow_stats else 'b1'
         
         river_info = {
@@ -1409,13 +1409,13 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                 'buffer_radius_km': float(buffer_size / 1000)
             },
             'flow_characteristics': {
-                'mean_accumulation': float(flow_stats.gevapotranspiration(f'{flow_band}_mean', 0)),
-                'max_accumulation': float(flow_stats.gevapotranspiration(f'{flow_band}_max', 0)),
-                'min_accumulation': float(flow_stats.gevapotranspiration(f'{flow_band}_min', 0)),
+                'mean_accumulation': float(flow_stats.get(f'{flow_band}_mean', 0)),
+                'max_accumulation': float(flow_stats.get(f'{flow_band}_max', 0)),
+                'min_accumulation': float(flow_stats.get(f'{flow_band}_min', 0)),
                 'description': 'Upstream area dari MERIT Hydro atau slope dari DEM'
             },
             'water_occurrence': {
-                'mean_percentage': float(water_stats.gevapotranspiration('occurrence', 0)),
+                'mean_percentage': float(water_stats.get('occurrence', 0)),
                 'description': 'Percentage of time area covered by water (0-100%)'
             },
             'files_created': {
@@ -1456,16 +1456,16 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         print(f"\n{'='*80}")
         
         print(f"\n✅ River network map successfully dibuat!")
-        print(f"   💡 TIP: Buka file HTML di browser untuk pevapotranspirationa interaktif")
+        print(f"   💡 TIP: Buka file HTML di browser untuk peta interaktif")
         print(f"   💡 TIP: Zoom in/out dan toggle layer untuk eksplorasi detail")
         
         return river_info
         
     except Exception as e:
-        print(f"\n❌ ERROR saat creating pevapotranspirationa aliran sungai: {str(e)}")
+        print(f"\n❌ ERROR saat creating peta aliran sungai: {str(e)}")
         import traceback
         traceback.print_exc()
-        print("\n⚠️  Analisis akan dilanjutkan tanpa pevapotranspirationa sungai...")
+        print("\n⚠️  Analisis akan dilanjutkan tanpa peta sungai...")
         return None
 
 # ==========================================
@@ -1479,7 +1479,7 @@ class ModelValidator:
     - PBIAS (< 10% = good, < 25% = acceptable)
     - RMSE
     
-    Reference: Mulevapotranspirationa (2012) dalam jurnal hal. 16
+    Reference: Muletationa (2012) dalam jurnal hal. 16
     """
     
     def __init__(self):
@@ -1490,7 +1490,7 @@ class ModelValidator:
         """
         NSE = 1 - Σ(Si - Oi)² / Σ(Oi - Ō)²
         
-        Interprevapotranspirationasi:
+        Interpretasi:
         NSE = 1.0  : Perfect match
         NSE ≥ 0.5  : Satisfactory (minimum acceptable)
         NSE < 0.5  : Unsatisfactory
@@ -1507,9 +1507,9 @@ class ModelValidator:
     
     def r_squared(self, observed, simulated):
         """
-        R² = coefficient of devapotranspirationermination
+        R² = coefficient of determination
         
-        Interprevapotranspirationasi:
+        Interpretasi:
         R² ≥ 0.9 : Excellent
         R² ≥ 0.7 : Good
         R² ≥ 0.6 : Satisfactory (minimum for flow predictions)
@@ -1531,7 +1531,7 @@ class ModelValidator:
         """
         PBIAS = [Σ(Si - Oi) / ΣOi] × 100
         
-        Interprevapotranspirationasi:
+        Interpretasi:
         PBIAS = 0     : Perfect match
         |PBIAS| < 10  : Very good
         |PBIAS| < 15  : Good
@@ -1546,7 +1546,7 @@ class ModelValidator:
         return pbias_val
     
     def rmse(self, observed, simulated):
-        """Root Mean Square Error (lower is bevapotranspirationter)"""
+        """Root Mean Square Error (lower is better)"""
         rmse_val = np.sqrt(np.mean((simulated - observed) ** 2))
         return rmse_val
     
@@ -1556,7 +1556,7 @@ class ModelValidator:
     
     def validate_model(self, observed, simulated, model_name="Model"):
         """
-        Validasi lengkap dengan interprevapotranspirationasi
+        Validasi lengkap dengan interpretasi
         """
         print(f"\n{'='*80}")
         print(f"📊 MODEL VALIDATION: {model_name}".center(80))
@@ -1569,7 +1569,7 @@ class ModelValidator:
         rmse_val = self.rmse(observed, simulated)
         mae_val = self.mae(observed, simulated)
         
-        # Interprevapotranspirationasi NSE
+        # Interpretasi NSE
         if nse >= 0.75:
             nse_interp = "VERY GOOD"
             nse_icon = "✅"
@@ -1586,7 +1586,7 @@ class ModelValidator:
             nse_interp = "UNSATISFACTORY"
             nse_icon = "❌"
         
-        # Interprevapotranspirationasi R²
+        # Interpretasi R²
         if r2 >= 0.85:
             r2_interp = "EXCELLENT"
             r2_icon = "✅"
@@ -1600,7 +1600,7 @@ class ModelValidator:
             r2_interp = "UNSATISFACTORY"
             r2_icon = "❌"
         
-        # Interprevapotranspirationasi PBIAS
+        # Interpretasi PBIAS
         abs_pbias = abs(pbias_val) if not np.isnan(pbias_val) else 999
         if abs_pbias < 10:
             pbias_interp = "VERY GOOD"
@@ -1646,9 +1646,9 @@ class ModelValidator:
             'RMSE': float(rmse_val),
             'MAE': float(mae_val),
             'status': overall_status,
-            'nse_interprevapotranspirationation': nse_interp,
-            'r2_interprevapotranspirationation': r2_interp,
-            'pbias_interprevapotranspirationation': pbias_interp
+            'nse_interpretation': nse_interp,
+            'r2_interpretation': r2_interp,
+            'pbias_interpretation': pbias_interp
         }
         
         self.metrics[model_name] = result
@@ -1715,7 +1715,7 @@ class ModelValidator:
                 'NSE_threshold': 0.5,
                 'R2_threshold': 0.6,
                 'PBIAS_threshold': 25,
-                'reference': 'Mulevapotranspirationa (2012)'
+                'reference': 'Muletationa (2012)'
             }
         }
         
@@ -1741,11 +1741,11 @@ class ModelValidator:
 # ==========================================
 class BaselineComparison:
     """
-    Perbandingan dengan mevapotranspirationode tradisional untuk membuktikan ML lebih baik
+    Perbandingan dengan method tradisional untuk membuktikan ML lebih baik
     
-    Mevapotranspirationhods implemented:
-    1. Rational Mevapotranspirationhod (Q = C × I × A)
-    2. NRCS Curve Number Mevapotranspirationhod
+    Methods implemented:
+    1. Rational Method (Q = C × I × A)
+    2. NRCS Curve Number Method
     3. Simple Water Balance (P - ET = R + ΔS)
     
     Reference: Standard hydrological methods untuk baseline comparison
@@ -1757,7 +1757,7 @@ class BaselineComparison:
     
     def rational_method(self, df):
         """
-        Rational Mevapotranspirationhod: Q = C × I × A
+        Rational Method: Q = C × I × A
         Simplified: Q = C × P (runoff coefficient × rainfall)
         
         C values (typical):
@@ -1771,7 +1771,7 @@ class BaselineComparison:
         df['runoff_rational'] = df['rainfall'] * C
         df['runoff_rational'] = df['runoff_rational'].clip(0)  # No negative runoff
         
-        print(f"   ✅ Rational Mevapotranspirationhod calculated (C = {C})")
+        print(f"   ✅ Rational Method calculated (C = {C})")
         return df
     
     def simple_water_balance(self, df):
@@ -1787,7 +1787,7 @@ class BaselineComparison:
     
     def curve_number_method(self, df):
         """
-        NRCS Curve Number Mevapotranspirationhod (SCS-CN)
+        NRCS Curve Number Method (SCS-CN)
         Q = (P - 0.2S)² / (P + 0.8S)
         where S = (25400/CN) - 254
         
@@ -1800,7 +1800,7 @@ class BaselineComparison:
         Using CN = 75 (typical mixed agricultural/residential)
         """
         CN = 75  # Average curve number for mixed land use
-        S = (25400 / CN) - 254  # Maximum revapotranspirationention (mm)
+        S = (25400 / CN) - 254  # Maximum retention (mm)
         
         # Initial abstraction (Ia = 0.2S)
         Ia = 0.2 * S
@@ -1812,7 +1812,7 @@ class BaselineComparison:
             0
         )
         
-        print(f"   ✅ Curve Number Mevapotranspirationhod calculated (CN = {CN}, S = {S:.2f} mm)")
+        print(f"   ✅ Curve Number Method calculated (CN = {CN}, S = {S:.2f} mm)")
         return df
     
     def persistence_model(self, df):
@@ -1853,7 +1853,7 @@ class BaselineComparison:
         # Prepare methods dictionary
         methods = {
             'ML Model': df_ml[component].values,
-            'Rational Mevapotranspirationhod': df_baseline['runoff_rational'].values if 'runoff_rational' in df_baseline.columns else None,
+            'Rational Method': df_baseline['runoff_rational'].values if 'runoff_rational' in df_baseline.columns else None,
             'Curve Number': df_baseline['runoff_cn'].values if 'runoff_cn' in df_baseline.columns else None,
             'Simple Balance': df_baseline['balance_simple'].values if 'balance_simple' in df_baseline.columns else None,
         }
@@ -1898,9 +1898,9 @@ class BaselineComparison:
         print("IMPROVEMENT ANALYSIS".center(80))
         print(f"{'='*80}")
         
-        ml_metrics = results.gevapotranspiration('ML Model', {})
-        ml_nse = ml_metrics.gevapotranspiration('NSE', 0)
-        ml_r2 = ml_metrics.gevapotranspiration('R2', 0)
+        ml_metrics = results.get('ML Model', {})
+        ml_nse = ml_metrics.get('NSE', 0)
+        ml_r2 = ml_metrics.get('R2', 0)
         
         improvements = {}
         
@@ -1908,8 +1908,8 @@ class BaselineComparison:
             if method == 'ML Model':
                 continue
             
-            baseline_nse = results[method].gevapotranspiration('NSE', 0)
-            baseline_r2 = results[method].gevapotranspiration('R2', 0)
+            baseline_nse = results[method].get('NSE', 0)
+            baseline_r2 = results[method].get('R2', 0)
             
             if baseline_nse and baseline_nse > 0:
                 nse_improvement = ((ml_nse - baseline_nse) / abs(baseline_nse)) * 100
@@ -2005,10 +2005,10 @@ class MLHydroSimulator:
         self.label_generator = label_gen  # Simpan untuk future use
 
         features = ['rainfall', 'evapotranspiration', 'temperature', 'ndvi', 'soil_moisture']
-        targevapotranspirations = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
+        targets = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
 
         X = self.scaler_X.fit_transform(df[features].values)
-        y = self.scaler_y.fit_transform(df[targevapotranspirations].values)
+        y = self.scaler_y.fit_transform(df[targets].values)
 
         # Sequences
         X_seq, y_seq = [], []
@@ -2087,15 +2087,15 @@ class MLHydroSimulator:
         print("MODEL VALIDATION PADA TEST SET".center(80))
         print(f"{'='*80}")
         
-        for i, targevapotranspiration in enumerate(targevapotranspirations):
+        for i, target in enumerate(targets):
             observed = y_test_denorm[:, i]
             simulated = y_pred_denorm[:, i]
             
             # Hanya validasi jika ada variasi dalam data
             if np.std(observed) > 1e-6:
-                validator.validate_model(observed, simulated, f"ML-Hydro-{targevapotranspiration}")
+                validator.validate_model(observed, simulated, f"ML-Hydro-{target}")
             else:
-                print(f"\n⚠️  Skipping {targevapotranspiration}: Insufficient variation in test data")
+                print(f"\n⚠️  Skipping {target}: Insufficient variation in test data")
         
         # Cross-validation untuk komponen kritis
         print(f"\n{'='*80}")
@@ -2103,15 +2103,15 @@ class MLHydroSimulator:
         print(f"{'='*80}")
         
         critical_components = ['runoff', 'reservoir']
-        for targevapotranspiration in critical_components:
-            if targevapotranspiration in targevapotranspirations:
-                idx = targevapotranspirations.index(targevapotranspiration)
+        for target in critical_components:
+            if target in targets:
+                idx = targets.index(target)
                 observed = y_test_denorm[:, idx]
                 simulated = y_pred_denorm[:, idx]
                 
                 if np.std(observed) > 1e-6 and len(observed) >= 10:
                     k_folds = min(5, len(observed) // 2)  # Adaptive k-folds
-                    validator.cross_validate(observed, simulated, f"ML-Hydro-{targevapotranspiration}", k_folds=k_folds)
+                    validator.cross_validate(observed, simulated, f"ML-Hydro-{target}", k_folds=k_folds)
         
         # Generate validation report - simpan di output_dir
         validator.generate_validation_report('model_validation_report.json', output_dir=self.output_dir)
@@ -2386,10 +2386,10 @@ class MLForecaster:
         print_section("TRAINING FORECASTER", "🔮")
 
         features = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability']
-        targevapotranspirations = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability', 'total_supply']
+        targets = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability', 'total_supply']
 
         X = self.scaler_X.fit_transform(df_hasil[features].values)
-        y = self.scaler_y.fit_transform(df_hasil[targevapotranspirations].values)
+        y = self.scaler_y.fit_transform(df_hasil[targets].values)
 
         X_seq, y_seq = [], []
         for i in range(len(X) - config.look_back - config.forecast_days + 1):
@@ -2401,13 +2401,13 @@ class MLForecaster:
         # Cek apakah data cukup untuk training
         if len(X_seq) < 20:
             print(f"⚠️ Data tidak cukup untuk forecasting ({len(X_seq)} sequences)")
-            print("   Menggunakan mevapotranspirationode sederhana untuk prediksi...")
-            # Set flag untuk gunakan mevapotranspirationode alternatif
+            print("   Menggunakan method sederhana untuk prediksi...")
+            # Set flag untuk gunakan method alternatif
             self.use_simple = True
             return df_hasil
 
         self.use_simple = False
-        self.model = self.build_model(len(features), len(targevapotranspirations))
+        self.model = self.build_model(len(features), len(targets))
 
         print("⏳ Training Forecaster...")
         self.model.fit(X_seq, y_seq, epochs=60, batch_size=8, verbose=0)
@@ -2417,9 +2417,9 @@ class MLForecaster:
 
     def forecast(self, df_hasil):
         features = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability']
-        targevapotranspirations = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability', 'total_supply']
+        targets = ['rainfall', 'evapotranspiration', 'reservoir', 'aquifer', 'reliability', 'total_supply']
 
-        # Jika model tidak terlatih atau data tidak cukup, gunakan mevapotranspirationode sederhana
+        # Jika model tidak terlatih atau data tidak cukup, gunakan method sederhana
         if not hasattr(self, 'use_simple'):
             self.use_simple = True
 
@@ -2454,13 +2454,13 @@ class MLForecaster:
             X_in = X_last.reshape(1, config.look_back, -1)
 
             y_pred = self.model.predict(X_in, verbose=0)[0]
-            y_reshaped = y_pred.reshape(config.forecast_days, len(targevapotranspirations))
+            y_reshaped = y_pred.reshape(config.forecast_days, len(targets))
             y_denorm = self.scaler_y.inverse_transform(y_reshaped)
 
             last_date = df_hasil['date'].iloc[-1]
             future_dates = pd.date_range(last_date + timedelta(days=1), periods=config.forecast_days, freq='D')
 
-            df_pred = pd.DataFrame(y_denorm, columns=targevapotranspirations)
+            df_pred = pd.DataFrame(y_denorm, columns=targets)
             df_pred['date'] = future_dates
 
         # Clip values
@@ -2525,7 +2525,7 @@ class MLWaterRights:
             adjusted_priorities = {}
             for sector, rights in self.water_rights.items():
                 base_priority = rights['priority_base']
-                # Non-transferable rights gevapotranspiration priority boost under stress
+                # Non-transferable rights get priority boost under stress
                 if not rights['transferable']:
                     adjusted_priorities[sector] = base_priority + (stress_factor * 2)
                 else:
@@ -2536,7 +2536,7 @@ class MLWaterRights:
                 rights = self.water_rights[sector]
                 quota = rights['legal_quota']
 
-                # Under stress, non-transferable rights gevapotranspiration full quota
+                # Under stress, non-transferable rights get full quota
                 if stress_factor > 0.3 and not rights['transferable']:
                     allocated = min(quota, remaining)
                 else:
@@ -2665,7 +2665,7 @@ class MLCostBenefit:
         self.cost_model = None
         self.benefit_model = None
 
-        # Base parameterers (akan dipelajari ML)
+        # Base parameters (akan dipelajari ML)
         self.base_costs = {
             'treatment': 0.05,
             'distribution': 0.03,
@@ -2709,8 +2709,8 @@ class MLCostBenefit:
         sectors = list(self.base_benefits.keys())
 
         # Generate training data dengan variasi
-        cost_targevapotranspirations = []
-        benefit_targevapotranspirations = []
+        cost_targets = []
+        benefit_targets = []
 
         for _, row in df_hasil.iterrows():
             supply = row['total_supply']
@@ -2727,7 +2727,7 @@ class MLCostBenefit:
                 self.base_costs['pumping_energy'] * supply * depth_factor,
                 self.base_costs['maintenance'] * supply * stress_factor
             ]
-            cost_targevapotranspirations.append(costs)
+            cost_targets.append(costs)
 
             # Dynamic benefits (menurun saat defisit)
             benefits = []
@@ -2736,11 +2736,11 @@ class MLCostBenefit:
                 allocation_ratio = row[f'supply_{sector}'] / config.demand[sector] if config.demand[sector] > 0 else 1
                 benefit = base_benefit * row[f'supply_{sector}'] * allocation_ratio
                 benefits.append(benefit)
-            benefit_targevapotranspirations.append(benefits)
+            benefit_targets.append(benefits)
 
         X = self.scaler.fit_transform(df_hasil[features].values)
-        y_cost = np.array(cost_targevapotranspirations)
-        y_benefit = np.array(benefit_targevapotranspirations)
+        y_cost = np.array(cost_targets)
+        y_benefit = np.array(benefit_targets)
 
         # Train cost model
         self.cost_model = self.build_cost_model(len(features))
@@ -2765,7 +2765,7 @@ class MLCostBenefit:
         # Calculate totals
         df_hasil['total_cost'] = cost_predictions.sum(axis=1)
         df_hasil['total_benefit'] = benefit_predictions.sum(axis=1)
-        df_hasil['nevapotranspiration_benefit'] = df_hasil['total_benefit'] - df_hasil['total_cost']
+        df_hasil['net_benefit'] = df_hasil['total_benefit'] - df_hasil['total_cost']
 
         # Energy calculation (physics-based tapi adjusted by ML)
         base_energy = df_hasil['total_supply'] * 0.05
@@ -2792,7 +2792,7 @@ class MLWaterQuality:
         self.scaler = MinMaxScaler()
         self.model = None
 
-        # Quality parameterers standards (WHO)
+        # Quality parameters standards (WHO)
         self.standards = {
             'pH': {'min': 6.5, 'max': 8.5, 'ideal': 7.0},
             'DO': {'min': 5.0, 'max': 14.0, 'ideal': 8.0},  # mg/L
@@ -2832,7 +2832,7 @@ class MLWaterQuality:
 
         print(f"   📊 Menggunakan features: {features}")
 
-        # Generate realistic parameterers (ML-based, bukan random)
+        # Generate realistic parameters (ML-based, bukan random)
         # pH: dipengaruhi oleh runoff (asam rainfall) dan stagnasi
         flow_rate = df_hasil['runoff'] / (df_hasil['reservoir'] + 1)
         df_hasil['pH'] = 7.0 + (flow_rate - flow_rate.mean()) / (flow_rate.std() + 1e-6) * 0.3
@@ -2853,14 +2853,14 @@ class MLWaterQuality:
         df_hasil['DO'] = df_hasil['DO'].clip(4, 14)
 
         # TDS: dari runoff (erosion) dan evaporation (konsentrasi)
-        erosionon = df_hasil['runoff'] * 15  # erosion membawa sediment
+        erosion = df_hasil['runoff'] * 15  # erosion membawa sediment
 
         if 'evapotranspiration' in available_cols:
             concentration = (df_hasil['evapotranspiration'] / (df_hasil['reservoir'] + 1)) * 50  # evaporasi konsentrasi TDS
         else:
             concentration = 0
 
-        df_hasil['TDS'] = 100 + erosionon + concentration + np.random.randn(len(df_hasil)) * 20
+        df_hasil['TDS'] = 100 + erosion + concentration + np.random.randn(len(df_hasil)) * 20
         df_hasil['TDS'] = df_hasil['TDS'].clip(0, 1000)
 
         # Turbidity: langsung dari runoff
@@ -2870,10 +2870,10 @@ class MLWaterQuality:
         # Calculate Water Quality Index (WQI)
         df_hasil['WQI'] = self._calculate_water_quality_index(df_hasil)
 
-        targevapotranspirations = ['pH', 'DO', 'TDS', 'Turbidity', 'WQI']
+        targets = ['pH', 'DO', 'TDS', 'Turbidity', 'WQI']
 
         X = self.scaler.fit_transform(df_hasil[features].values)
-        y = df_hasil[targevapotranspirations].values
+        y = df_hasil[targets].values
 
         # Create sequences
         X_seq, y_seq = [], []
@@ -2979,7 +2979,7 @@ class MLAquaticEcology:
             Dense(48, activation='relu'),
             Dropout(0.2),
             Dense(32, activation='relu'),
-            Dense(3)  # [fish_HSI, macroinvertebrate_HSI, vegevapotranspirationation_HSI]
+            Dense(3)  # [fish_HSI, macroinvertebrate_HSI, vegetation_HSI]
         ])
         model.compile(optimizer=Adam(0.001), loss='mse')
         return model
@@ -3041,11 +3041,11 @@ class MLAquaticEcology:
             (df['WQI'] / 100) * 0.3
         )
 
-        # Riparian Vegevapotranspirationation HSI
+        # Riparian Vegetation HSI
         flood_frequency = (df['runoff'] > df['runoff'].quantile(0.9)).astype(float)
         flood_frequency_smooth = flood_frequency.rolling(30, min_periods=1).mean()
 
-        df['vegevapotranspirationation_HSI'] = (
+        df['vegetation_HSI'] = (
             df['ndvi'] * 0.4 +
             df['soil_moisture'] * 0.35 +
             (1 - flood_frequency_smooth) * 0.25
@@ -3082,7 +3082,7 @@ class MLAquaticEcology:
         df['ecological_stress'] = 1 - (
             df['fish_HSI'] * 0.4 +
             df['macroinvertebrate_HSI'] * 0.3 +
-            df['vegevapotranspirationation_HSI'] * 0.3
+            df['vegetation_HSI'] * 0.3
         )
 
         return df
@@ -3096,10 +3096,10 @@ class MLAquaticEcology:
 
         # Train Habitat Model
         habitat_features = ['temperature', 'DO', 'runoff', 'Turbidity', 'WQI', 'ndvi', 'soil_moisture']
-        habitat_targevapotranspirations = ['fish_HSI', 'macroinvertebrate_HSI', 'vegevapotranspirationation_HSI']
+        habitat_targets = ['fish_HSI', 'macroinvertebrate_HSI', 'vegetation_HSI']
 
         X_habitat = self.scaler_habitat.fit_transform(df_hasil[habitat_features].values)  # ✅ FIXED
-        y_habitat = df_hasil[habitat_targevapotranspirations].values
+        y_habitat = df_hasil[habitat_targets].values
 
         self.habitat_model = self.build_habitat_model(len(habitat_features))
 
@@ -3111,10 +3111,10 @@ class MLAquaticEcology:
 
         # Train Flow Regime Model
         flow_features = ['runoff', 'rainfall', 'reservoir', 'evapotranspiration']
-        flow_targevapotranspirations = ['flow_alteration_index', 'ecological_stress']
+        flow_targets = ['flow_alteration_index', 'ecological_stress']
 
         X_flow = self.scaler_flow.fit_transform(df_hasil[flow_features].values)  # ✅ FIXED
-        y_flow = df_hasil[flow_targevapotranspirations].values
+        y_flow = df_hasil[flow_targets].values
 
         # Create sequences
         X_seq, y_seq = [], []
@@ -3150,12 +3150,12 @@ class MLAquaticEcology:
 
         df_hasil['fish_HSI'] = np.clip(habitat_pred[:, 0], 0, 1)
         df_hasil['macroinvertebrate_HSI'] = np.clip(habitat_pred[:, 1], 0, 1)
-        df_hasil['vegevapotranspirationation_HSI'] = np.clip(habitat_pred[:, 2], 0, 1)
+        df_hasil['vegetation_HSI'] = np.clip(habitat_pred[:, 2], 0, 1)
 
         df_hasil['ecosystem_health'] = (
             df_hasil['fish_HSI'] * 0.35 +
             df_hasil['macroinvertebrate_HSI'] * 0.30 +
-            df_hasil['vegevapotranspirationation_HSI'] * 0.20 +
+            df_hasil['vegetation_HSI'] * 0.20 +
             (df_hasil['WQI'] / 100) * 0.15
         )
 
@@ -3258,14 +3258,14 @@ class WaterBalanceAnalyzer:
         total_runoff = df['wb_runoff'].sum()
         total_storage_change = df['wb_delta_storage'].sum()
 
-        # Nevapotranspiration storage change (first to last)
+        # Net storage change (first to last)
         initial_storage = (df['reservoir'].iloc[0] +
                           df['soil_storage'].iloc[0] +
                           df['aquifer'].iloc[0])
         final_storage = (df['reservoir'].iloc[-1] +
                         df['soil_storage'].iloc[-1] +
                         df['aquifer'].iloc[-1])
-        nevapotranspiration_storage_change = final_storage - initial_storage
+        net_storage_change = final_storage - initial_storage
 
         # Validation
         # ✅ UBAH: Gunakan tolerance 5% sesuai standar jurnal
@@ -3284,8 +3284,8 @@ class WaterBalanceAnalyzer:
                 'evapotranspiration_pct': float((total_evapotranspiration / total_input) * 100) if total_input > 0 else 0.0,
                 'runoff_mm': float(total_runoff),
                 'runoff_pct': float((total_runoff / total_input) * 100) if total_input > 0 else 0.0,
-                'storage_change_mm': float(nevapotranspiration_storage_change),
-                'storage_change_pct': float((nevapotranspiration_storage_change / total_input) * 100) if total_input > 0 else 0.0
+                'storage_change_mm': float(net_storage_change),
+                'storage_change_pct': float((net_storage_change / total_input) * 100) if total_input > 0 else 0.0
             },
             'pass_validation': abs(mean_error_pct) < tolerance_standard * 100,
             'validation_note': 'Using journal standard tolerance (5%) for physics-informed models'
@@ -3304,7 +3304,7 @@ class WaterBalanceAnalyzer:
         print(f"📈 COMPONENT BREAKDOWN:")
         print(f"   ET:               {total_evapotranspiration:>10.2f} mm ({validation['components']['evapotranspiration_pct']:>5.1f}%)")
         print(f"   Runoff:           {total_runoff:>10.2f} mm ({validation['components']['runoff_pct']:>5.1f}%)")
-        print(f"   Storage Change:   {nevapotranspiration_storage_change:>10.2f} mm ({validation['components']['storage_change_pct']:>5.1f}%)\n")
+        print(f"   Storage Change:   {net_storage_change:>10.2f} mm ({validation['components']['storage_change_pct']:>5.1f}%)\n")
 
         print(f"⚠️  ERROR ANALYSIS:")
         print(f"   Mean Daily Error: {mean_error_pct:>10.2f}%")
@@ -3312,7 +3312,7 @@ class WaterBalanceAnalyzer:
         print(f"   Tolerance (Jurnal): {validation['tolerance_pct']:>8.2f}% ✅ STANDAR 5%\n")
 
         if validation['pass_validation']:
-            print(f"✅ VALIDATION PASSED - Mass conservation meevapotranspirations journal standards!")
+            print(f"✅ VALIDATION PASSED - Mass conservation meets journal standards!")
             print(f"   Physics-Informed Loss Function successfully mempertahankan keseimbangan air")
         else:
             print(f"⚠️ WARNING - Error melebihi tolerance standar jurnal (5%)")
@@ -3385,11 +3385,11 @@ def physics_informed_loss(y_true, y_pred, water_balance_penalty=100.0):
     Sesuai jurnal hal. 16-17
     
     Args:
-        y_true: Targevapotranspiration values [runoff, infiltration, percolation, baseflow, KOLAM RETENSI, soil_storage, aquifer]
+        y_true: Target values [runoff, infiltration, percolation, baseflow, KOLAM RETENSI, soil_storage, aquifer]
         y_pred: Predicted values
         water_balance_penalty: Weight untuk mass balance constraint (default: 100.0)
     
-    Revapotranspirationurns:
+    Returns:
         total_loss: MSE + physics penalty
     """
     import tensorflow as tf
@@ -3472,7 +3472,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
         validator: ModelValidator instance dari ml_hydro
         output_dir: Directory untuk save results
     
-    Revapotranspirationurns:
+    Returns:
         results: Dictionary dengan comparison results
     """
     print_section("BASELINE COMPARISON: ML vs TRADITIONAL METHODS", "📊")
@@ -3480,7 +3480,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
     baseline = BaselineComparison()
     
     # Calculate baseline methods
-    print("\n🔄 Menghitung mevapotranspirationode tradisional...")
+    print("\n🔄 Menghitung method tradisional...")
     df = baseline.rational_method(df)
     df = baseline.simple_water_balance(df)
     df = baseline.curve_number_method(df)
@@ -3518,7 +3518,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
     comprehensive_results = {
         'component_analyzed': 'runoff',
         'baseline_methods': {
-            'Rational Mevapotranspirationhod': {
+            'Rational Method': {
                 'description': 'Q = C × P, where C = 0.5 (mixed land use)',
                 'reference': 'Classical rational method'
             },
@@ -3544,7 +3544,7 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
             'NSE_threshold': 0.5,
             'R2_threshold': 0.6,
             'PBIAS_threshold': 25,
-            'reference': 'Mulevapotranspirationa (2012)'
+            'reference': 'Muletationa (2012)'
         },
         'conclusion': generate_baseline_conclusion(baseline.results)
     }
@@ -3571,7 +3571,7 @@ def generate_baseline_conclusion(results):
         }
     
     runoff_results = results['runoff']
-    avg_improvement = runoff_results.gevapotranspiration('average_improvement')
+    avg_improvement = runoff_results.get('average_improvement')
     
     if avg_improvement is None:
         return {
@@ -3579,7 +3579,7 @@ def generate_baseline_conclusion(results):
             'message': 'Unable to calculate improvement metrics'
         }
     
-    # Devapotranspirationermine conclusion based on improvement
+    # Determine conclusion based on improvement
     if avg_improvement > 30:
         status = 'EXCELLENT'
         message = (
@@ -3595,7 +3595,7 @@ def generate_baseline_conclusion(results):
             f'ML model demonstrates VERY GOOD performance with {avg_improvement:.1f}% average improvement. '
             f'Substantial gains over traditional methods justify ML application.'
         )
-        recommendation = 'Model meevapotranspirations publication standards. Clear advantage over baselines.'
+        recommendation = 'Model meets publication standards. Clear advantage over baselines.'
         
     elif avg_improvement > 10:
         status = 'GOOD'
@@ -3687,7 +3687,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax1.plot(df_prediksi['date'], df_prediksi['reservoir'], 'r--', linewidth=2, label='Forecast ML')
         ax1.axhline(config.capacity_reservoir * 0.7, color='g', linestyle=':', alpha=0.7, label='Level Optimal (70%)')
         ax1.axhline(config.capacity_reservoir * 0.3, color='orange', linestyle=':', alpha=0.7, label='Level Minimum (30%)')
-        ax1.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['reservoir'], alpha=0.2, color='blue')
+        ax1.fill_between(df_hasil['date'], 0, df_hasil['reservoir'], alpha=0.2, color='blue')
         ax1.set_title('📦 RETENTION POND VOLUME STATUS', fontsize=13, fontweight='bold', pad=10)
         ax1.set_ylabel('Volume (mm)', fontsize=11)
         ax1.legend(loc='upper right', fontsize=9)
@@ -3770,8 +3770,8 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
             flood_risk = df_hasil['flood_risk'].iloc[config.look_back:] * 100
             drought_risk = df_hasil['drought_risk'].iloc[config.look_back:] * 100
 
-            ax6.fill_bevapotranspirationween(dates_risk, 0, flood_risk, alpha=0.5, color='red', label='Risiko Banjir')
-            ax6.fill_bevapotranspirationween(dates_risk, 0, -drought_risk, alpha=0.5, color='brown', label='Risiko Kekeringan')
+            ax6.fill_between(dates_risk, 0, flood_risk, alpha=0.5, color='red', label='Risiko Banjir')
+            ax6.fill_between(dates_risk, 0, -drought_risk, alpha=0.5, color='brown', label='Risiko Kekeringan')
             ax6.axhline(0, color='black', linewidth=0.8)
             ax6.set_title('⚠️ RISK ANALYSIS', fontsize=11, fontweight='bold', pad=10)
             ax6.set_ylabel('Risk Level (%)', fontsize=10)
@@ -3806,7 +3806,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         
         # Verifikasi file saved
         if os.path.exists(save_path):
-            file_size = os.path.gevapotranspirationsize(save_path)
+            file_size = os.path.getsize(save_path)
             print(f"✅ Dashboard saved: {save_path} ({file_size:,} bytes)")
             return True
         else:
@@ -3826,7 +3826,7 @@ def create_simple_report(df_hasil, df_prediksi):
     """Laporan sederhana untuk orang awam"""
     print_section("LAPORAN MANAJEMEN AIR", "📋")
 
-    # Mevapotranspirationrics
+    # Metrics
     reliability = df_hasil['reliability'].mean() * 100
     reliability_pred = df_prediksi['reliability'].mean() * 100
     reservoir_now = df_hasil['reservoir'].iloc[-1]
@@ -3875,7 +3875,7 @@ def create_simple_report(df_hasil, df_prediksi):
             'Agriculture': 'Agriculture',
             'Industry': 'Industry', 
             'Environmental': 'Environmental'
-        }.gevapotranspiration(sector, sector)
+        }.get(sector, sector)
 
         print(f"║  {icon} {sector_name:<15}                                            ║")
         print(f"║     Demand: {demand:.2f} mm/hari | Tersedia: {supply:.2f} mm/hari        ║")
@@ -3893,11 +3893,11 @@ def create_simple_report(df_hasil, df_prediksi):
         print("╠════════════════════════════════════════════════════════════════╣")
         print(f"║                                                                ║")
         print(f"║  🌊 KEMUNGKINAN BANJIR                                         ║")
-        print(f"║     Terdevapotranspirationeksi: {flood_days} hari dari {len(df_hasil)} hari analisis             ║")
+        print(f"║     Terdeteksi: {flood_days} hari dari {len(df_hasil)} hari analisis             ║")
         print(f"║     Status: {'HIGH - CAUTION NEEDED' if flood_days > 10 else 'LOW - SAFE':<30}              ║")
         print(f"║                                                                ║")
         print(f"║  🏜️ KEMUNGKINAN KEKERINGAN                                     ║")
-        print(f"║     Terdevapotranspirationeksi: {drought_days} hari dari {len(df_hasil)} hari analisis            ║")
+        print(f"║     Terdeteksi: {drought_days} hari dari {len(df_hasil)} hari analisis            ║")
         print(f"║     Status: {'HIGH - CAUTION NEEDED' if drought_days > 10 else 'LOW - SAFE':<30}              ║")
         print(f"║                                                                ║")
         print("╚════════════════════════════════════════════════════════════════╝")
@@ -3912,7 +3912,7 @@ def create_simple_report(df_hasil, df_prediksi):
         print("║  🔴 PERLU SEGERA DITINDAKLANJUTI:                              ║")
         print("║     • Cari sumber air tambahan untuk meningkatkan supply     ║")
         print("║     • Batasi penggunaan air untuk kegiatan tidak penting      ║")
-        print("║     • Pantau kevapotranspirationat kondisi tampungan air                      ║")
+        print("║     • Pantau ketat kondisi tampungan air                      ║")
     elif reliability < 90:
         print("║  ⚠️ PERLU PERHATIAN:                                           ║")
         print("║     • Lakukan perawatan saluran air secara rutin              ║")
@@ -4001,14 +4001,14 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax2.grid(True, alpha=0.3, axis='y')
 
     # 3. Cost-Benefit Analysis
-    if 'nevapotranspiration_benefit' in df_hasil.columns:
+    if 'net_benefit' in df_hasil.columns:
         ax3 = fig.add_subplot(gs[1, :2])
-        ax3.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['total_benefit'],
+        ax3.fill_between(df_hasil['date'], 0, df_hasil['total_benefit'],
                         alpha=0.4, color='green', label='Total Benefit')
-        ax3.fill_bevapotranspirationween(df_hasil['date'], 0, -df_hasil['total_cost'],
+        ax3.fill_between(df_hasil['date'], 0, -df_hasil['total_cost'],
                         alpha=0.4, color='red', label='Total Cost')
-        ax3.plot(df_hasil['date'], df_hasil['nevapotranspiration_benefit'],
-                'b-', linewidth=2, label='Nevapotranspiration Benefit')
+        ax3.plot(df_hasil['date'], df_hasil['net_benefit'],
+                'b-', linewidth=2, label='Net Benefit')
         ax3.axhline(0, color='black', linewidth=1)
         ax3.set_title('💰 COST-BENEFIT ANALYSIS', fontweight='bold')
         ax3.set_ylabel('Value (IDR per mm)')
@@ -4019,7 +4019,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
     if 'energy_kwh' in df_hasil.columns:
         ax4 = fig.add_subplot(gs[1, 2:])
         ax4.plot(df_hasil['date'], df_hasil['energy_kwh'], 'r-', linewidth=2)
-        ax4.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['energy_kwh'], alpha=0.3, color='red')
+        ax4.fill_between(df_hasil['date'], 0, df_hasil['energy_kwh'], alpha=0.3, color='red')
         ax4.set_title('⚡ ENERGY CONSUMPTION', fontweight='bold')
         ax4.set_ylabel('Energy (kWh/day)')
         ax4.grid(True, alpha=0.3)
@@ -4031,7 +4031,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax5.axhline(90, color='green', linestyle=':', label='Excellent (>90)')
         ax5.axhline(70, color='orange', linestyle=':', label='Good (70-90)')
         ax5.axhline(50, color='red', linestyle=':', label='Fair (50-70)')
-        ax5.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['WQI'], alpha=0.3, color='blue')
+        ax5.fill_between(df_hasil['date'], 0, df_hasil['WQI'], alpha=0.3, color='blue')
         ax5.set_title('💧 WATER QUALITY LEVEL', fontweight='bold')
         ax5.set_ylabel('WQI (0-100)')
         ax5.set_ylim(0, 105)
@@ -4062,11 +4062,11 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax6.legend(lns, labs, loc='upper left', fontsize=8)
         ax6.grid(True, alpha=0.3)
 
-    # 7. Efficiency Mevapotranspirationrics
+    # 7. Efficiency Metrics
     if 'efficiency_ratio' in df_hasil.columns:
         ax7 = fig.add_subplot(gs[3, :2])
         ax7.plot(df_hasil['date'], df_hasil['efficiency_ratio'], 'purple', linewidth=2)
-        ax7.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['efficiency_ratio'],
+        ax7.fill_between(df_hasil['date'], 0, df_hasil['efficiency_ratio'],
                         alpha=0.3, color='purple')
         ax7.axhline(1, color='red', linestyle='--', label='Break-even')
         ax7.set_title('📈 EFFICIENCY RATIO (Benefit/Cost)', fontweight='bold')
@@ -4089,10 +4089,10 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
     ax9 = fig.add_subplot(gs[4, :])
     ax9.axis('off')
 
-    # Mevapotranspirationrics
+    # Metrics
     avg_water_quality_index = df_hasil['WQI'].mean() if 'WQI' in df_hasil.columns else 0
     avg_efficiency = df_hasil['efficiency_ratio'].mean() if 'efficiency_ratio' in df_hasil.columns else 0
-    total_nevapotranspiration_benefit = df_hasil['nevapotranspiration_benefit'].sum() if 'nevapotranspiration_benefit' in df_hasil.columns else 0
+    total_net_benefit = df_hasil['net_benefit'].sum() if 'net_benefit' in df_hasil.columns else 0
     avg_energy = df_hasil['energy_kwh'].mean() if 'energy_kwh' in df_hasil.columns else 0
 
     summary = f"""
@@ -4100,7 +4100,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
     ║                                    RINGKASAN KOMPREHENSIF SISTEM                                      ║
     ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════╣
     ║                                                                                                       ║
-    ║  💧 WATER QUALITY (WQI): {avg_water_quality_index:>6.1f}/100  │  💰 NET BENEFIT: Rp {total_nevapotranspiration_benefit:>12,.0f}  │  ⚡ ENERGI: {avg_energy:>6.1f} kWh/hari  ║
+    ║  💧 WATER QUALITY (WQI): {avg_water_quality_index:>6.1f}/100  │  💰 NET BENEFIT: Rp {total_net_benefit:>12,.0f}  │  ⚡ ENERGI: {avg_energy:>6.1f} kWh/hari  ║
     ║  📈 EFISIENSI: {avg_efficiency:>6.2f}           │  ⚖️ KEANDALAN: {df_hasil['reliability'].mean()*100:>6.1f}%        │  🌊 PASOKAN: {df_hasil['total_supply'].mean():>6.2f} mm/hari    ║
     ║                                                                                                       ║
     ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
@@ -4135,7 +4135,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         
         # Verifikasi file saved
         if os.path.exists(save_path):
-            file_size = os.path.gevapotranspirationsize(save_path)
+            file_size = os.path.getsize(save_path)
             print(f"✅ Enhanced Dashboard saved: {save_path} ({file_size:,} bytes)")
         else:
             print(f"❌ ERROR: File tidak saved di {save_path}")
@@ -4206,21 +4206,21 @@ def create_comprehensive_report(df_hasil, df_prediksi, morphology_data=None, mon
     print("║              BAGIAN 3: BIAYA & MANFAAT                         ║")
     print("╠════════════════════════════════════════════════════════════════╣")
 
-    if 'nevapotranspiration_benefit' in df_hasil.columns:
+    if 'net_benefit' in df_hasil.columns:
         total_cost = df_hasil['total_cost'].sum()
         total_benefit = df_hasil['total_benefit'].sum()
-        nevapotranspiration_benefit = df_hasil['nevapotranspiration_benefit'].sum()
+        net_benefit = df_hasil['net_benefit'].sum()
         avg_efficiency = df_hasil['efficiency_ratio'].mean()
         total_energy = df_hasil['energy_kwh'].sum()
         avg_energy = df_hasil['energy_kwh'].mean()
 
-        roi = (nevapotranspiration_benefit / total_cost * 100) if total_cost > 0 else 0
+        roi = (net_benefit / total_cost * 100) if total_cost > 0 else 0
 
         print("║                                                                ║")
         print(f"║  💰 ANALISIS EKONOMI                                           ║")
         print(f"║     Total Biaya: Rp {total_cost:>15,.0f}                        ║")
         print(f"║     Total Manfaat: Rp {total_benefit:>15,.0f}                    ║")
-        print(f"║     Nevapotranspiration Benefit: Rp {nevapotranspiration_benefit:>15,.0f}                       ║")
+        print(f"║     Net Benefit: Rp {net_benefit:>15,.0f}                       ║")
         print(f"║     ROI: {roi:>6.1f}%                                              ║")
         print(f"║                                                                ║")
         print(f"║  ⚡ KONSUMSI ENERGI                                             ║")
@@ -4420,9 +4420,9 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
 
     # 1. Sediment Transport Time Series
     ax1 = fig.add_subplot(gs[0, :2])
-    ax1.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['suspended_sedimentt'],
+    ax1.fill_between(df_hasil['date'], 0, df_hasil['suspended_sediment'],
                      alpha=0.5, color='brown', label='Suspended Sediment')
-    ax1.fill_bevapotranspirationween(df_hasil['date'], 0, -df_hasil['bedload'],
+    ax1.fill_between(df_hasil['date'], 0, -df_hasil['bedload'],
                      alpha=0.5, color='orange', label='Bedload')
     ax1.plot(df_hasil['date'], df_hasil['total_sedimentt'],
             'r-', linewidth=2, label='Total Sediment')
@@ -4434,7 +4434,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
 
     # 2. Erosion vs Deposition
     ax2 = fig.add_subplot(gs[0, 2:])
-    ax2.bar(df_hasil['date'], df_hasil['erosionon_rate'],
+    ax2.bar(df_hasil['date'], df_hasil['erosion_rate'],
            alpha=0.6, color='red', label='Erosion', width=1)
     ax2.bar(df_hasil['date'], -df_hasil['deposition_rate'],
            alpha=0.6, color='green', label='Deposition', width=1)
@@ -4468,11 +4468,11 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
             'b-', linewidth=2, label='Fish')
     ax4.plot(df_hasil['date'], df_hasil['macroinvertebrate_HSI'],
             'g-', linewidth=2, label='Macroinvertebrate')
-    ax4.plot(df_hasil['date'], df_hasil['vegevapotranspirationation_HSI'],
-            'brown', linewidth=2, label='Riparian Vegevapotranspirationation')
+    ax4.plot(df_hasil['date'], df_hasil['vegetation_HSI'],
+            'brown', linewidth=2, label='Riparian Vegetation')
     ax4.axhline(config.habitat_threshold, color='red', linestyle='--',
                label=f'Threshold ({config.habitat_threshold})')
-    ax4.fill_bevapotranspirationween(df_hasil['date'], 0, 1, where=(df_hasil['fish_HSI'] < config.habitat_threshold),
+    ax4.fill_between(df_hasil['date'], 0, 1, where=(df_hasil['fish_HSI'] < config.habitat_threshold),
                     alpha=0.2, color='red')
     ax4.set_title('🐟 HABITAT SUITABILITY LEVEL', fontweight='bold')
     ax4.set_ylabel('HSI (0-1)')
@@ -4484,7 +4484,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
     ax5 = fig.add_subplot(gs[2, :2])
     ax5.plot(df_hasil['date'], df_hasil['ecosystem_health'] * 100,
             'darkgreen', linewidth=2.5)
-    ax5.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['ecosystem_health'] * 100,
+    ax5.fill_between(df_hasil['date'], 0, df_hasil['ecosystem_health'] * 100,
                     alpha=0.3, color='green')
     ax5.axhline(80, color='green', linestyle=':', alpha=0.7, label='Excellent (>80)')
     ax5.axhline(60, color='orange', linestyle=':', alpha=0.7, label='Good (60-80)')
@@ -4504,7 +4504,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
                 'red', linewidth=2, label='Ecological Stress')
         ax6.axhline(30, color='orange', linestyle='--', alpha=0.7,
                    label='Moderate Impact (30%)')
-        ax6.fill_bevapotranspirationween(df_hasil['date'], 30, 100,
+        ax6.fill_between(df_hasil['date'], 30, 100,
                         where=(df_hasil['flow_alteration_index'] * 100 > 30),
                         alpha=0.2, color='red')
         ax6.set_title('💧 FLOW PATTERN CHANGES', fontweight='bold')
@@ -4537,7 +4537,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
         
         # Verifikasi file saved
         if os.path.exists(save_path):
-            file_size = os.path.gevapotranspirationsize(save_path)
+            file_size = os.path.getsize(save_path)
             print(f"✅ Morphology Ecology Dashboard saved: {save_path} ({file_size:,} bytes)")
         else:
             print(f"❌ ERROR: File tidak saved di {save_path}")
@@ -4579,7 +4579,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
             'b-', linewidth=3, label='Cumulative Input (P)')
     ax1.plot(df_hasil['date'], df_hasil['wb_cum_output'],
             'r-', linewidth=3, label='Cumulative Output (ET+R+ΔS)')
-    ax1.fill_bevapotranspirationween(df_hasil['date'],
+    ax1.fill_between(df_hasil['date'],
                      df_hasil['wb_cum_input'],
                      df_hasil['wb_cum_output'],
                      alpha=0.3, color='yellow', label='Cumulative Residual')
@@ -4614,12 +4614,12 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
 
     # 4. Component Breakdown (Stacked Area)
     ax4 = fig.add_subplot(gs[2, :])
-    ax4.fill_bevapotranspirationween(df_hasil['date'], 0, df_hasil['wb_evapotranspiration'],
+    ax4.fill_between(df_hasil['date'], 0, df_hasil['wb_evapotranspiration'],
                     alpha=0.7, color='orange', label='ET')
-    ax4.fill_bevapotranspirationween(df_hasil['date'], df_hasil['wb_evapotranspiration'],
+    ax4.fill_between(df_hasil['date'], df_hasil['wb_evapotranspiration'],
                     df_hasil['wb_evapotranspiration'] + df_hasil['wb_runoff'],
                     alpha=0.7, color='blue', label='Runoff')
-    ax4.fill_bevapotranspirationween(df_hasil['date'],
+    ax4.fill_between(df_hasil['date'],
                     df_hasil['wb_evapotranspiration'] + df_hasil['wb_runoff'],
                     df_hasil['wb_output'],
                     alpha=0.7, color='green', label='ΔStorage')
@@ -4630,7 +4630,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
     ax4.legend(loc='upper left', fontsize=10)
     ax4.grid(True, alpha=0.3)
 
-    # 5. Monthly Budgevapotranspiration
+    # 5. Monthly Budget
     ax5 = fig.add_subplot(gs[3, :2])
     x = np.arange(len(monthly_summary))
     width = 0.35
@@ -4700,7 +4700,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
         
         # Verifikasi file saved
         if os.path.exists(save_path):
-            file_size = os.path.gevapotranspirationsize(save_path)
+            file_size = os.path.getsize(save_path)
             print(f"✅ Water Balance Dashboard saved: {save_path} ({file_size:,} bytes)")
         else:
             print(f"❌ ERROR: File tidak saved di {save_path}")
@@ -4739,14 +4739,14 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
                     verticalalignment='center', horizontalalignment='center',
                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
 
-    # Sediment Budgevapotranspiration
-    total_erosionon = df_hasil['erosionon_rate'].sum()
+    # Sediment Budget
+    total_erosion = df_hasil['erosion_rate'].sum()
     total_deposition = df_hasil['deposition_rate'].sum()
     total_export = df_hasil['total_sedimentt'].sum()
-    nevapotranspiration_sedimentt = total_erosionon - total_deposition
+    net_sediment = total_erosion - total_deposition
 
-    axes[0, 1].bar(['Erosion', 'Deposition', 'Export', 'Nevapotranspiration'],
-                   [total_erosionon, -total_deposition, total_export, nevapotranspiration_sedimentt],
+    axes[0, 1].bar(['Erosion', 'Deposition', 'Export', 'Net'],
+                   [total_erosion, -total_deposition, total_export, net_sediment],
                    color=['red', 'green', 'orange', 'brown'], alpha=0.7)
     axes[0, 1].axhline(0, color='black', linewidth=1)
     axes[0, 1].set_title('💰 BUDGET SEDIMEN TOTAL', fontweight='bold')
@@ -4758,7 +4758,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
         habitat_counts = df_hasil['habitat_status'].value_counts()
         colors_habitat = {'Poor': 'red', 'Fair': 'orange', 'Good': 'lightgreen', 'Excellent': 'darkgreen'}
         axes[1, 0].pie(habitat_counts.values, labels=habitat_counts.index,
-                      autopct='%1.1f%%', colors=[colors_habitat.gevapotranspiration(x, 'gray') for x in habitat_counts.index],
+                      autopct='%1.1f%%', colors=[colors_habitat.get(x, 'gray') for x in habitat_counts.index],
                       startangle=90)
         axes[1, 0].set_title('🎯 DISTRIBUSI STATUS HABITAT', fontweight='bold')
 
@@ -4796,7 +4796,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
         
         # Verifikasi file saved
         if os.path.exists(save_path_morpho):
-            file_size = os.path.gevapotranspirationsize(save_path_morpho)
+            file_size = os.path.getsize(save_path_morpho)
             print(f"✅ Morphometry Summary saved: {save_path_morpho} ({file_size:,} bytes)")
         else:
             print(f"❌ ERROR: File tidak saved di {save_path_morpho}")
@@ -4822,20 +4822,20 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     print("║                                                                ║")
     print("║  🏔️ KONDISI WILAYAH                                            ║")
     print(f"║     Jarak High-Low: {morphology_data['relief']:>8.1f} m                  ║")
-    print(f"║     Kevapotranspirationinggian: {morphology_data['elevation_min']:>6.1f} - {morphology_data['elevation_max']:>6.1f} m                    ║")
+    print(f"║     Ketinggian: {morphology_data['elevation_min']:>6.1f} - {morphology_data['elevation_max']:>6.1f} m                    ║")
     print(f"║     Kemiringan Rata-rata: {morphology_data['slope_mean']:>5.2f}°                     ║")
 
     # Sediment statistics
-    avg_suspended = df_hasil['suspended_sedimentt'].mean()
+    avg_suspended = df_hasil['suspended_sediment'].mean()
     avg_bedload = df_hasil['bedload'].mean()
     total_sedimentt_load = df_hasil['total_sedimentt'].sum()
-    max_erosionon = df_hasil['erosionon_rate'].max()
-    avg_erosionon = df_hasil['erosionon_rate'].mean()
+    max_erosion = df_hasil['erosion_rate'].max()
+    avg_erosion = df_hasil['erosion_rate'].mean()
 
     # Sediment delivery
-    total_erosionon = df_hasil['erosionon_rate'].sum()
+    total_erosion = df_hasil['erosion_rate'].sum()
     total_export = df_hasil['total_sedimentt'].sum()
-    sedimentt_delivery_ratio = (total_export / (total_erosionon + 1e-6)) * 100
+    sedimentt_delivery_ratio = (total_export / (total_erosion + 1e-6)) * 100
 
     print("║                                                                ║")
     print("║  🌊 KONDISI LUMPUR & ENDAPAN                                   ║")
@@ -4845,22 +4845,22 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     print(f"║     Percentage Material Terangkut: {sedimentt_delivery_ratio:>5.1f}%               ║")
     print("║                                                                ║")
     print("║  ⛰️ KONDISI EROSI TANAH                                         ║")
-    print(f"║     Erosi Rata-rata: {avg_erosionon:>6.2f} ton/ha/day                    ║")
-    print(f"║     Highest Erosion: {max_erosionon:>6.2f} ton/ha/day                    ║")
-    print(f"║     Total Soil Tererosion: {total_erosionon:>10,.1f} ton/periode            ║")
+    print(f"║     Erosi Rata-rata: {avg_erosion:>6.2f} ton/ha/day                    ║")
+    print(f"║     Highest Erosion: {max_erosion:>6.2f} ton/ha/day                    ║")
+    print(f"║     Total Soil Tererosion: {total_erosion:>10,.1f} ton/periode            ║")
 
     # Erosion severity classification
-    if avg_erosionon < 1:
-        erosionon_class = "RINGAN"
-        erosionon_icon = "✅"
-    elif avg_erosionon < 5:
-        erosionon_class = "SEDANG"
-        erosionon_icon = "⚠️"
+    if avg_erosion < 1:
+        erosion_class = "RINGAN"
+        erosion_icon = "✅"
+    elif avg_erosion < 5:
+        erosion_class = "SEDANG"
+        erosion_icon = "⚠️"
     else:
-        erosionon_class = "BERAT"
-        erosionon_icon = "🔴"
+        erosion_class = "BERAT"
+        erosion_icon = "🔴"
 
-    print(f"║     Tingkat Erosi: {erosionon_icon} {erosionon_class:<30}              ║")
+    print(f"║     Tingkat Erosi: {erosion_icon} {erosion_class:<30}              ║")
 
     # Channel morphology
     avg_width = df_hasil['channel_width'].mean()
@@ -4887,7 +4887,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     # HSI statistics
     avg_fish_hsi = df_hasil['fish_HSI'].mean()
     avg_macro_hsi = df_hasil['macroinvertebrate_HSI'].mean()
-    avg_veg_hsi = df_hasil['vegevapotranspirationation_HSI'].mean()
+    avg_veg_hsi = df_hasil['vegetation_HSI'].mean()
 
     # Suitable days
     fish_suitable_days = (df_hasil['fish_HSI'] >= config.habitat_threshold).sum()
@@ -4914,7 +4914,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
                 'Fair': 'Fair',
                 'Good': 'Good',
                 'Excellent': 'Excellent'
-            }.gevapotranspiration(status, status)
+            }.get(status, status)
             print(f"║     {status_in_indo:<12}: {count:>4} hari ({pct:>5.1f}%)                       ║")
 
     # Ecosystem health
@@ -4995,9 +4995,9 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     recommendations = []
 
     # Sediment-based recommendations
-    if avg_erosionon > 5:
+    if avg_erosion > 5:
         recommendations.append("🔴 EROSI TANAH: Buat terasering dan tanam lebih banyak pohon")
-    elif avg_erosionon > 1:
+    elif avg_erosion > 1:
         recommendations.append("⚠️ EROSI TANAH: Tambahkan tanaman di area yang rawan erosion")
 
     if total_sedimentt_load > 1000:
@@ -5018,7 +5018,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
 
     if 'compliance_pct' in locals() and compliance_pct < 80:
         recommendations.append("🔴 ALIRAN AIR: Tambah pelepasan air dari KOLAM RETENSI untuk lingkungan")
-        recommendations.append(f"   • Targevapotranspiration minimal: {avg_env_flow:.2f} mm/hari")
+        recommendations.append(f"   • Target minimal: {avg_env_flow:.2f} mm/hari")
 
     # Integrated recommendations
     if 'avg_alteration' in locals() and avg_alteration > 50 and avg_eco_health < 60:
@@ -5034,7 +5034,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     if len(recommendations) == 0:
         recommendations.append("✅ KONDISI BAIK: Pertahankan pengelolaan yang sudah berjalan")
         recommendations.append("   • Lanjutkan pemantauan rutin")
-        recommendations.append("   • Jaga koridor di tepi sungai tevapotranspirationap alami")
+        recommendations.append("   • Jaga koridor di tepi sungai tetap alami")
 
     for rec in recommendations:
         print(f"║  {rec:<62}║")
@@ -5083,7 +5083,7 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
         'Morphology': {
             'relief_m': morphology_data['relief'],
             'slope_mean_deg': morphology_data['slope_mean'],
-            'avg_erosionon_ton_ha_day': df_hasil['erosionon_rate'].mean(),
+            'avg_erosion_ton_ha_day': df_hasil['erosion_rate'].mean(),
             'total_sedimentt_load_ton': df_hasil['total_sedimentt'].sum()
         },
         'Ecology': {
@@ -5121,7 +5121,7 @@ def create_water_balance_report(df_hasil, monthly_summary, validation):
     print(f"║     Air Masuk (rainfall):      {validation['total_input_mm']:>10.2f} mm            ║")
     print(f"║     Air Keluar (total):     {validation['total_output_mm']:>10.2f} mm            ║")
     print(f"║     Selisih:                {validation['total_residual_mm']:>10.2f} mm            ║")
-    print(f"║     Percentage Selisih:     {validation.gevapotranspiration('residual_pct', 0):>10.2f} %             ║")
+    print(f"║     Percentage Selisih:     {validation.get('residual_pct', 0):>10.2f} %             ║")
     print("║                                                                ║")
 
     # Status
@@ -5179,7 +5179,7 @@ def create_water_balance_report(df_hasil, monthly_summary, validation):
     print(f"║     Index Kekeringan:      {avg_ai:>10.3f}                    ║")
     print("║                                                                ║")
 
-    # Interprevapotranspirationation
+    # Interpretation
     print("║  💡 PENJELASAN SEDERHANA                                       ║")
     print("║                                                                ║")
 
@@ -5244,7 +5244,7 @@ def create_water_balance_report(df_hasil, monthly_summary, validation):
         print("║     3. Periksa konsistensi data storage                       ║")
     elif abs(validation['residual_pct']) > 5:
         print("║  ⚠️ ERROR MODERATE - Perbaikan Disarankan:                     ║")
-        print("║     1. Fine-tune hyperparameterers ML model                     ║")
+        print("║     1. Fine-tune hyperparameters ML model                     ║")
         print("║     2. Tambahkan physics-informed loss function               ║")
         print("║     3. Validasi estimasi ET                                   ║")
     else:
@@ -5277,14 +5277,14 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
         print("⚠️ Baseline results not available untuk visualisasi")
         return
     
-    comparison = baseline_results.gevapotranspiration('comparison_results', {})
+    comparison = baseline_results.get('comparison_results', {})
     if not comparison or 'runoff' not in comparison:
         print("⚠️ Data comparison tidak lengkap")
         return
     
     runoff_comp = comparison['runoff']
-    detailed_metrics = runoff_comp.gevapotranspiration('detailed_metrics', {})
-    improvements = runoff_comp.gevapotranspiration('improvements', {})
+    detailed_metrics = runoff_comp.get('detailed_metrics', {})
+    improvements = runoff_comp.get('improvements', {})
     
     # Create figure
     fig = plt.figure(figsize=(18, 12))
@@ -5301,7 +5301,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     colors_bar = []
     
     for method, metrics in detailed_metrics.items():
-        if metrics.gevapotranspiration('NSE') is not None:
+        if metrics.get('NSE') is not None:
             methods.append(method)
             nse = metrics['NSE']
             nse_values.append(nse)
@@ -5336,7 +5336,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     r2_colors = []
     
     for method, metrics in detailed_metrics.items():
-        if metrics.gevapotranspiration('R2') is not None:
+        if metrics.get('R2') is not None:
             r2_methods.append(method.replace(' ', '\n'))
             r2 = metrics['R2']
             r2_values.append(r2)
@@ -5366,7 +5366,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     pbias_colors = []
     
     for method, metrics in detailed_metrics.items():
-        if metrics.gevapotranspiration('PBIAS') is not None:
+        if metrics.get('PBIAS') is not None:
             pbias_methods.append(method)
             pbias = metrics['PBIAS']
             pbias_values.append(pbias)
@@ -5398,7 +5398,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     imp_colors = []
     
     for method, imp_data in improvements.items():
-        nse_improvement = imp_data.gevapotranspiration('NSE_improvement_%')
+        nse_improvement = imp_data.get('NSE_improvement_%')
         # Skip if improvement is None (baseline model failed)
         if nse_improvement is not None:
             imp_methods.append(method.replace(' ', '\n'))
@@ -5418,7 +5418,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     if imp_methods:
         bars_imp = ax4.bar(imp_methods, imp_values, color=imp_colors, alpha=0.7, edgecolor='black')
         ax4.axhline(0, color='black', linewidth=2)
-        ax4.axhline(20, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label='Targevapotranspiration (20%)')
+        ax4.axhline(20, color='green', linestyle='--', linewidth=1.5, alpha=0.7, label='Target (20%)')
         ax4.set_ylabel('Improvement (%)', fontsize=10, fontweight='bold')
         ax4.set_title('🚀 ML IMPROVEMENT', fontsize=12, fontweight='bold')
         ax4.legend(loc='upper right', fontsize=8)
@@ -5440,7 +5440,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     
     for method, metrics in detailed_metrics.items():
         rmse_methods.append(method)
-        rmse = metrics.gevapotranspiration('RMSE')
+        rmse = metrics.get('RMSE')
         # Handle None RMSE values
         rmse_values.append(rmse if rmse is not None else 0)
     
@@ -5448,7 +5448,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
                        color=['darkblue' if m == 'ML Model' else 'gray' for m in rmse_methods],
                        alpha=0.7, edgecolor='black')
     ax5.set_ylabel('RMSE', fontsize=11, fontweight='bold')
-    ax5.set_title('📉 ROOT MEAN SQUARE ERROR (Lower is Bevapotranspirationter)', fontsize=13, fontweight='bold')
+    ax5.set_title('📉 ROOT MEAN SQUARE ERROR (Lower is Better)', fontsize=13, fontweight='bold')
     ax5.grid(True, alpha=0.3, axis='y')
     plt.setp(ax5.xaxis.get_majorticklabels(), rotation=15, ha='right')
     
@@ -5465,7 +5465,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
             save_path = os.path.join(output_dir, 'Baseline_Comparison.png')
         except Exception as e:
             print(f"❌ ERROR: Tidak bisa creating direktori {output_dir}: {e}")
-            # Tevapotranspirationap gunakan output_dir meskipun ada error (folder mungkin sudah ada)
+            # Tetap gunakan output_dir meskipun ada error (folder mungkin sudah ada)
             save_path = os.path.join(output_dir, 'Baseline_Comparison.png')
     else:
         # Jika tidak ada output_dir, gunakan current directory
@@ -5480,7 +5480,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
         time.sleep(0.1)
         
         if os.path.exists(save_path):
-            file_size = os.path.gevapotranspirationsize(save_path)
+            file_size = os.path.getsize(save_path)
             print(f"✅ Baseline Comparison Dashboard saved: {save_path} ({file_size:,} bytes)")
         else:
             print(f"⚠️ File tidak ditemukan setelah save: {save_path}")
@@ -5693,7 +5693,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     ml_sedimentt = MLSedimentTransport(morphology_data)
     df = ml_sedimentt.train(df)
     df_hasil = df_hasil.merge(
-        df[['date', 'suspended_sedimentt', 'bedload', 'erosionon_rate', 'deposition_rate']],
+        df[['date', 'suspended_sediment', 'bedload', 'erosion_rate', 'deposition_rate']],
         on='date',
         how='left'
     )
@@ -5782,16 +5782,16 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
             safe_json_dump(all_validation_metrics, os.path.join(save_dir, 'Model_Validation_Complete.json'))
             
             # Print summary
-            conclusion = baseline_results.gevapotranspiration('conclusion', {})
+            conclusion = baseline_results.get('conclusion', {})
             print(f"\n{'='*80}")
             print(f"BASELINE COMPARISON CONCLUSION".center(80))
             print(f"{'='*80}")
-            print(f"\n   Status: {conclusion.gevapotranspiration('status', 'UNKNOWN')}")
-            print(f"   {conclusion.gevapotranspiration('message', 'No message available')}")
+            print(f"\n   Status: {conclusion.get('status', 'UNKNOWN')}")
+            print(f"   {conclusion.get('message', 'No message available')}")
             print(f"\n   📝 Recommendation:")
-            print(f"   {conclusion.gevapotranspiration('recommendation', 'No recommendation available')}")
+            print(f"   {conclusion.get('recommendation', 'No recommendation available')}")
             
-            if conclusion.gevapotranspiration('publication_ready'):
+            if conclusion.get('publication_ready'):
                 print(f"\n   ✅ MODEL IS PUBLICATION READY!")
             else:
                 print(f"\n   ⚠️  Model needs further refinement before publication")
@@ -5940,7 +5940,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     for png_file in png_files:
         full_path = os.path.join(save_dir, png_file)
         if os.path.exists(full_path):
-            file_size = os.path.gevapotranspirationsize(full_path)
+            file_size = os.path.getsize(full_path)
             print(f"   ✅ {png_file} ({file_size:,} bytes)")
         else:
             print(f"   ❌ {png_file} (tidak ditemukan)")
@@ -5959,14 +5959,14 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     for data_file in data_files:
         full_path = os.path.join(save_dir, data_file)
         if os.path.exists(full_path):
-            file_size = os.path.gevapotranspirationsize(full_path)
+            file_size = os.path.getsize(full_path)
             print(f"   ✅ {data_file} ({file_size:,} bytes)")
         else:
             print(f"   ❌ {data_file} (tidak ditemukan)")
     
     print("\n✅ ANALISIS SELESAI!")
     
-    # Revapotranspirationurn the dataframes for unpacking
+    # Return the dataframes for unpacking
     return df, df_hasil, df_prediksi
 
 
@@ -6039,9 +6039,9 @@ if __name__ == "__main__":
         print("\n" + "="*80)
         print("🌊 RIVANA SYSTEM - PILIHAN MODE 🌊".center(80))
         print("="*80)
-        print("\n1. Mode AUTO (gunakan parameterer default)")
+        print("\n1. Mode AUTO (gunakan parameter default)")
         print("2. Mode MANUAL (input lokasi sendiri)")
-        print("3. Mode CUSTOM (langsung panggil dengan parameterer)\n")
+        print("3. Mode CUSTOM (langsung panggil dengan parameter)\n")
         
         mode = input("Pilih mode (1/2/3, default=1): ").strip() or "1"
         
