@@ -29,7 +29,7 @@ from folium import plugins
 warnings.filterwarnings('ignore')
 
 plt.style.use('seaborn-v0_8-whitegrid')
-sns.set_palevapotranspirationte("Sevapotranspiration2")
+sns.set_palette("Set2")
 
 import json
 import numpy as np
@@ -470,10 +470,10 @@ class MLSedimentTransport:
 
         # 5. Deposition rate
         # Deposition terjadi saat velocity low
-        sevapotranspirationtling_velocity = 0.01  # m/s (fine sand)
+        settling_velocity = 0.01  # m/s (fine sand)
         flow_velocity = df['runoff'] * 0.1  # Simplified
         df['deposition_rate'] = np.where(
-            flow_velocity < sevapotranspirationtling_velocity,
+            flow_velocity < settling_velocity,
             df['suspended_sedimentt'] * 0.3,
             0
         )
@@ -702,7 +702,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     # ⚡ SINGLE gevapotranspirationInfo() call untuk semua data - SUPER CEPAT!
     print("⚡ Processing all data in ONE batch request...")
     
-    def extract_daily_values(collection, var_name, scale_factor=1, offsevapotranspiration=0):
+    def extract_daily_values(collection, var_name, scale_factor=1, offset=0):
         """Extract daily values dari ImageCollection"""
         def process_image(img):
             val = img.reduceRegion(
@@ -713,7 +713,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
             ).values().gevapotranspiration(0)
             
             # Apply scaling
-            val = ee.Number(val).multiply(scale_factor).add(offsevapotranspiration)
+            val = ee.Number(val).multiply(scale_factor).add(offset)
             
             return ee.Feature(None, {
                 'date': img.date().format('YYYY-MM-dd'),
@@ -724,7 +724,7 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     
     # Extract features
     chirps_fc = extract_daily_values(chirps, 'rainfall')
-    era5_fc = extract_daily_values(era5, 'temperature', offsevapotranspiration=-273.15)
+    era5_fc = extract_daily_values(era5, 'temperature', offset=-273.15)
     modis_fc = extract_daily_values(modis, 'ndvi', scale_factor=0.0001)
     smap_fc = extract_daily_values(smap, 'soil_moisture')
     
@@ -889,7 +889,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         # ========== 1. AMBIL DATA HIDROLOGI DARI GEE ==========
         print("\n🔍 Mengambil data jaringan sungai dari Google Earth Engine...")
         
-        # Datasevapotranspiration 1: JRC Global Surface Water - Permanent Water Bodies
+        # Dataset 1: JRC Global Surface Water - Permanent Water Bodies
         # Menunjukkan badan air permanen (sungai, danau, reservoir)
         try:
             water_occurrence = ee.Image('JRC/GSW1_4/GlobalSurfaceWater') \
@@ -900,7 +900,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             print(f"   ⚠️ Error loading JRC GSW: {e}")
             water_occurrence = None
         
-        # Datasevapotranspiration 2: DEM untuk konteks topografi dan flow calculation
+        # Dataset 2: DEM untuk konteks topografi dan flow calculation
         try:
             dem = ee.Image('USGS/SRTMGL1_003').clip(buffer_zone)
             print("   ✅ Data DEM (SRTM) successfully diambil")
@@ -913,7 +913,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             dem = None
             slope = None
         
-        # Datasevapotranspiration 3: MERIT Hydro sebagai alternatif untuk flow accumulation
+        # Dataset 3: MERIT Hydro sebagai alternatif untuk flow accumulation
         # Lebih stabil dan reliable untuk analisis hidrologi
         try:
             # Gunakan MERIT Hydro - flow accumulation yang lebih akurat
@@ -979,7 +979,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             dem_vis = {
                 'min': 0,
                 'max': 3000,
-                'palevapotranspirationte': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
+                'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321', '#2d1b00']
             }
             m.add_ee_layer(dem, dem_vis, 'Elevasi (DEM)', show=False, opacity=0.6)
             print("   ✅ Layer DEM ditambahkan ke pevapotranspirationa")
@@ -989,7 +989,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             flow_vis = {
                 'min': 0,
                 'max': 1000,
-                'palevapotranspirationte': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
+                'palette': ['#ccccff', '#6699ff', '#0066ff', '#0033cc', '#001a66']
             }
             m.add_ee_layer(flow_acc, flow_vis, 'Akumulasi Aliran', show=True, opacity=0.7)
             print("   ✅ Layer Flow Accumulation ditambahkan ke pevapotranspirationa")
@@ -999,7 +999,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
             water_vis = {
                 'min': 0,
                 'max': 100,
-                'palevapotranspirationte': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
+                'palette': ['#ffffff', '#99d9ea', '#4575b4', '#313695']
             }
             m.add_ee_layer(water_occurrence, water_vis, 'Kejadian Air (%)', show=True, opacity=0.6)
             print("   ✅ Layer Water Occurrence ditambahkan ke pevapotranspirationa")
@@ -1186,7 +1186,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                                 'dimensions': '800x800',
                                 'region': buffer_zone,
                                 'format': 'png',
-                                'palevapotranspirationte': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321']
+                                'palette': ['#ffffff', '#f5e6d3', '#d4b996', '#a67c52', '#654321']
                             }
                             
                             dem_url = dem.gevapotranspirationThumbURL(dem_vis_params)
@@ -2022,7 +2022,7 @@ class MLHydroSimulator:
         min_samples_required = 30  # Minimum untuk proper train/val/test split
         if len(X_seq) < min_samples_required:
             error_msg = (
-                f"❌ ERROR: Datasevapotranspiration terlalu kecil untuk machine learning dengan validasi!\n"
+                f"❌ ERROR: Dataset terlalu kecil untuk machine learning dengan validasi!\n"
                 f"   - Amount samples: {len(X_seq)}\n"
                 f"   - Minimum required: {min_samples_required}\n"
                 f"   - Periode data: {len(df)} hari\n"
@@ -2074,15 +2074,15 @@ class MLHydroSimulator:
         # ========== VALIDASI DENGAN TEST SET ==========
         validator = ModelValidator()
         
-        # Predict pada test sevapotranspiration
-        print("\n🔍 Melakukan prediksi pada test sevapotranspiration...")
+        # Predict pada test set
+        print("\n🔍 Melakukan prediksi pada test set...")
         y_test_pred = self.model.predict(X_test, verbose=0)
         
         # Denormalize untuk validasi
         y_test_denorm = self.scaler_y.inverse_transform(y_test)
         y_pred_denorm = self.scaler_y.inverse_transform(y_test_pred)
         
-        # Validation sevapotranspirationiap komponen
+        # Validation setiap komponen
         print(f"\n{'='*80}")
         print("MODEL VALIDATION PADA TEST SET".center(80))
         print(f"{'='*80}")
@@ -2402,7 +2402,7 @@ class MLForecaster:
         if len(X_seq) < 20:
             print(f"⚠️ Data tidak cukup untuk forecasting ({len(X_seq)} sequences)")
             print("   Menggunakan mevapotranspirationode sederhana untuk prediksi...")
-            # Sevapotranspiration flag untuk gunakan mevapotranspirationode alternatif
+            # Set flag untuk gunakan mevapotranspirationode alternatif
             self.use_simple = True
             return df_hasil
 
@@ -2474,7 +2474,7 @@ class MLForecaster:
 # ==========================================
 # FITUR TAMBAHAN RIVANA
 # ==========================================
-# Tambahkan modul ini sevapotranspirationelah class MLForecaster di program utama
+# Tambahkan modul ini setelah class MLForecaster di program utama
 
 # ==========================================
 # ML MODEL 6: WATER RIGHTS & PRIORITIES
@@ -5357,7 +5357,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     ax2.set_title('📈 R² COEFFICIENT', fontsize=12, fontweight='bold')
     ax2.set_ylim(0, 1.0)
     ax2.grid(True, alpha=0.3, axis='y')
-    plt.sevapotranspirationp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=8)
+    plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=8)
     
     # 3. PBIAS Comparison
     ax3 = fig.add_subplot(gs[1, :2])
@@ -5423,7 +5423,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
         ax4.set_title('🚀 ML IMPROVEMENT', fontsize=12, fontweight='bold')
         ax4.legend(loc='upper right', fontsize=8)
         ax4.grid(True, alpha=0.3, axis='y')
-        plt.sevapotranspirationp(ax4.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=8)
+        plt.setp(ax4.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=8)
     else:
         # No valid improvement data - show message
         ax4.text(0.5, 0.5, 'No valid improvement data\n(Baseline models failed validation)', 
@@ -5450,7 +5450,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
     ax5.set_ylabel('RMSE', fontsize=11, fontweight='bold')
     ax5.set_title('📉 ROOT MEAN SQUARE ERROR (Lower is Bevapotranspirationter)', fontsize=13, fontweight='bold')
     ax5.grid(True, alpha=0.3, axis='y')
-    plt.sevapotranspirationp(ax5.xaxis.get_majorticklabels(), rotation=15, ha='right')
+    plt.setp(ax5.xaxis.get_majorticklabels(), rotation=15, ha='right')
     
     # Add value labels
     for bar, val in zip(bars_rmse, rmse_values):
@@ -5483,7 +5483,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
             file_size = os.path.gevapotranspirationsize(save_path)
             print(f"✅ Baseline Comparison Dashboard saved: {save_path} ({file_size:,} bytes)")
         else:
-            print(f"⚠️ File tidak ditemukan sevapotranspirationelah save: {save_path}")
+            print(f"⚠️ File tidak ditemukan setelah save: {save_path}")
             
     except Exception as e:
         print(f"❌ Error saat saving baseline comparison dashboard: {str(e)}")
@@ -5566,7 +5566,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
             raise ValueError(error_msg)
             
     except ValueError as e:
-        if "Periode analisis terlalu pendek" in str(e) or "Datasevapotranspiration terlalu kecil" in str(e):
+        if "Periode analisis terlalu pendek" in str(e) or "Dataset terlalu kecil" in str(e):
             # Re-raise validation errors
             raise
         print(f"\n❌ ERROR: Format input tidak valid - {e}")
