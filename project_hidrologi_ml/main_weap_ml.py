@@ -3688,7 +3688,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax1.axhline(config.kapasitas_kolam_retensi * 0.7, color='g', linestyle=':', alpha=0.7, label='Level Optimal (70%)')
         ax1.axhline(config.kapasitas_kolam_retensi * 0.3, color='orange', linestyle=':', alpha=0.7, label='Level Minimum (30%)')
         ax1.fill_between(df_hasil['date'], 0, df_hasil['kolam_retensi'], alpha=0.2, color='blue')
-        ax1.set_title('📦 STATUS VOLUME KOLAM RETENSI', fontsize=13, fontweight='bold', pad=10)
+        ax1.set_title('📦 RETENTION POND VOLUME STATUS', fontsize=13, fontweight='bold', pad=10)
         ax1.set_ylabel('Volume (mm)', fontsize=11)
         ax1.legend(loc='upper right', fontsize=9)
         ax1.grid(True, alpha=0.3)
@@ -3740,7 +3740,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax3.plot(df_hasil['date'], df_hasil['total_demand'], 'k--',
                  linewidth=2.5, label='Total Kebutuhan', zorder=10)
 
-        ax3.set_title('⚖️ KESEIMBANGAN PASOKAN DAN PERMINTAAN AIR', fontsize=13, fontweight='bold', pad=10)
+        ax3.set_title('⚖️ WATER SUPPLY AND DEMAND BALANCE', fontsize=13, fontweight='bold', pad=10)
         ax3.set_ylabel('Volume (mm/hari)', fontsize=11)
         ax3.legend(loc='upper left', ncol=3, fontsize=9)
         ax3.grid(True, alpha=0.3, axis='y')
@@ -3750,7 +3750,7 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
         total_allocations = [df_hasil[f'pasokan_{s}'].sum() for s in sectors]
         ax4.pie(total_allocations, labels=sectors, autopct='%1.1f%%',
                 colors=colors_sector, startangle=90, textprops={'fontsize': 10})
-        ax4.set_title('🥧 DISTRIBUSI ALOKASI AIR', fontsize=11, fontweight='bold', pad=10)
+        ax4.set_title('🥧 WATER ALLOCATION DISTRIBUTION', fontsize=11, fontweight='bold', pad=10)
 
         # 5. PREDIKSI HUJAN
         ax5 = fig.add_subplot(gs[2, 1])
@@ -3758,8 +3758,8 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
                 alpha=0.6, color='steelblue', label='Historis', width=1)
         ax5.plot(df_prediksi['date'], df_prediksi['hujan'],
                  'r-o', linewidth=2, markersize=4, label='Prediksi ML')
-        ax5.set_title('🌧️ CURAH HUJAN & PREDIKSI', fontsize=11, fontweight='bold', pad=10)
-        ax5.set_ylabel('Hujan (mm/hari)', fontsize=10)
+        ax5.set_title('🌧️ RAINFALL & FORECAST', fontsize=11, fontweight='bold', pad=10)
+        ax5.set_ylabel('Rainfall (mm/day)', fontsize=10)
         ax5.legend(fontsize=9)
         ax5.grid(True, alpha=0.3)
 
@@ -3773,8 +3773,8 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
             ax6.fill_between(dates_risk, 0, flood_risk, alpha=0.5, color='red', label='Risiko Banjir')
             ax6.fill_between(dates_risk, 0, -drought_risk, alpha=0.5, color='brown', label='Risiko Kekeringan')
             ax6.axhline(0, color='black', linewidth=0.8)
-            ax6.set_title('⚠️ ANALISIS RISIKO', fontsize=11, fontweight='bold', pad=10)
-            ax6.set_ylabel('Tingkat Risiko (%)', fontsize=10)
+            ax6.set_title('⚠️ RISK ANALYSIS', fontsize=11, fontweight='bold', pad=10)
+            ax6.set_ylabel('Risk Level (%)', fontsize=10)
             ax6.legend(fontsize=9)
             ax6.grid(True, alpha=0.3)
 
@@ -3787,8 +3787,8 @@ def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
             colors_rec = ['red' if r == 1 else 'gray' if r == 0 else 'green' for r in rec_values]
             ax7.bar(df_hasil['date'], rec_values, color=colors_rec, alpha=0.7, width=1)
             ax7.axhline(0, color='black', linewidth=1)
-            ax7.set_title('🎯 REKOMENDASI OPERASI KOLAM RETENSI (ML)', fontsize=13, fontweight='bold', pad=10)
-            ax7.set_ylabel('Aksi', fontsize=10)
+            ax7.set_title('🎯 RETENTION POND OPERATION RECOMMENDATIONS (ML)', fontsize=13, fontweight='bold', pad=10)
+            ax7.set_ylabel('Action', fontsize=10)
             ax7.set_yticks([-1, 0, 1])
             ax7.set_yticklabels(['SIMPAN', 'PERTAHANKAN', 'LEPAS'])
             ax7.grid(True, alpha=0.3, axis='y')
@@ -3983,7 +3983,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
                    bottom=bottom, label=f'{sector}', alpha=0.8, color=colors[i], width=1)
             bottom += df_hasil[f'hak_air_{sector}'].tail(60)
 
-        ax1.set_title('⚖️ ALOKASI BERDASARKAN HAK AIR & PRIORITAS', fontweight='bold')
+        ax1.set_title('⚖️ ALLOCATION BASED ON WATER RIGHTS & PRIORITIES', fontweight='bold')
         ax1.set_ylabel('Volume (mm/hari)')
         ax1.legend(ncol=4, fontsize=9)
         ax1.grid(True, alpha=0.3, axis='y')
@@ -3996,8 +3996,8 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
 
         avg_supply = [df_hasil[f'supply_{s}'].mean() for s in sources]
         ax2.bar(sources, avg_supply, color=source_colors, alpha=0.8)
-        ax2.set_title('🌊 DISTRIBUSI JARINGAN PASOKAN', fontweight='bold')
-        ax2.set_ylabel('Pasokan Rata-rata (mm/hari)')
+        ax2.set_title('🌊 SUPPLY NETWORK DISTRIBUTION', fontweight='bold')
+        ax2.set_ylabel('Average Supply (mm/day)')
         ax2.grid(True, alpha=0.3, axis='y')
 
     # 3. Cost-Benefit Analysis
@@ -4010,7 +4010,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax3.plot(df_hasil['date'], df_hasil['net_benefit'],
                 'b-', linewidth=2, label='Net Benefit')
         ax3.axhline(0, color='black', linewidth=1)
-        ax3.set_title('💰 ANALISIS BIAYA-MANFAAT', fontweight='bold')
+        ax3.set_title('💰 COST-BENEFIT ANALYSIS', fontweight='bold')
         ax3.set_ylabel('Value (IDR per mm)')
         ax3.legend(fontsize=9)
         ax3.grid(True, alpha=0.3)
@@ -4020,8 +4020,8 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax4 = fig.add_subplot(gs[1, 2:])
         ax4.plot(df_hasil['date'], df_hasil['energy_kwh'], 'r-', linewidth=2)
         ax4.fill_between(df_hasil['date'], 0, df_hasil['energy_kwh'], alpha=0.3, color='red')
-        ax4.set_title('⚡ KONSUMSI ENERGI', fontweight='bold')
-        ax4.set_ylabel('Energi (kWh/hari)')
+        ax4.set_title('⚡ ENERGY CONSUMPTION', fontweight='bold')
+        ax4.set_ylabel('Energy (kWh/day)')
         ax4.grid(True, alpha=0.3)
 
     # 5. Water Quality Index
@@ -4032,7 +4032,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax5.axhline(70, color='orange', linestyle=':', label='Baik (70-90)')
         ax5.axhline(50, color='red', linestyle=':', label='Cukup (50-70)')
         ax5.fill_between(df_hasil['date'], 0, df_hasil['WQI'], alpha=0.3, color='blue')
-        ax5.set_title('💧 TINGKAT KUALITAS AIR', fontweight='bold')
+        ax5.set_title('💧 WATER QUALITY LEVEL', fontweight='bold')
         ax5.set_ylabel('WQI (0-100)')
         ax5.set_ylim(0, 105)
         ax5.legend(fontsize=8)
@@ -4055,7 +4055,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax6.set_ylabel('pH', color='b')
         ax6_twin1.set_ylabel('DO (mg/L)', color='g')
         ax6_twin2.set_ylabel('TDS (mg/L)', color='r')
-        ax6.set_title('🔬 PARAMETER KUALITAS AIR', fontweight='bold')
+        ax6.set_title('🔬 WATER QUALITY PARAMETERS', fontweight='bold')
 
         lns = l1 + l2 + l3
         labs = [l.get_label() for l in lns]
@@ -4069,7 +4069,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
         ax7.fill_between(df_hasil['date'], 0, df_hasil['efficiency_ratio'],
                         alpha=0.3, color='purple')
         ax7.axhline(1, color='red', linestyle='--', label='Break-even')
-        ax7.set_title('📈 RASIO EFISIENSI (Benefit/Cost)', fontweight='bold')
+        ax7.set_title('📈 EFFICIENCY RATIO (Benefit/Cost)', fontweight='bold')
         ax7.set_ylabel('Efficiency Ratio')
         ax7.legend(fontsize=9)
         ax7.grid(True, alpha=0.3)
@@ -4083,7 +4083,7 @@ def create_enhanced_dashboard(df_hasil, df_prediksi, output_dir=None):
 
         ax8.pie(avg_costs, labels=sources, autopct='%1.1f%%',
                colors=colors_cost, startangle=90)
-        ax8.set_title('💵 DISTRIBUSI BIAYA JARINGAN', fontweight='bold')
+        ax8.set_title('💵 NETWORK COST DISTRIBUTION', fontweight='bold')
 
     # 9. Comprehensive Summary
     ax9 = fig.add_subplot(gs[4, :])
@@ -4427,7 +4427,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
     ax1.plot(df_hasil['date'], df_hasil['total_sediment'],
             'r-', linewidth=2, label='Total Sediment')
     ax1.axhline(0, color='black', linewidth=0.8)
-    ax1.set_title('🏔️ PERPINDAHAN TANAH', fontweight='bold')
+    ax1.set_title('🏔️ SEDIMENT TRANSPORT', fontweight='bold')
     ax1.set_ylabel('Sediment Load (mg/L)')
     ax1.legend(fontsize=9)
     ax1.grid(True, alpha=0.3)
@@ -4439,7 +4439,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
     ax2.bar(df_hasil['date'], -df_hasil['deposition_rate'],
            alpha=0.6, color='green', label='Deposition', width=1)
     ax2.axhline(0, color='black', linewidth=1)
-    ax2.set_title('⚖️ EROSI vs DEPOSISI', fontweight='bold')
+    ax2.set_title('⚖️ EROSION vs DEPOSITION', fontweight='bold')
     ax2.set_ylabel('Rate (ton/ha/day)')
     ax2.legend(fontsize=9)
     ax2.grid(True, alpha=0.3, axis='y')
@@ -4455,7 +4455,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
 
     ax3.set_ylabel('Width (m)', color='b')
     ax3_twin.set_ylabel('Depth (m)', color='g')
-    ax3.set_title('🌊 PERUBAHAN GEOMETRI CHANNEL', fontweight='bold')
+    ax3.set_title('🌊 CHANNEL GEOMETRY CHANGES', fontweight='bold')
 
     lns = l1 + l2
     labs = [l.get_label() for l in lns]
@@ -4474,7 +4474,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
                label=f'Threshold ({config.habitat_threshold})')
     ax4.fill_between(df_hasil['date'], 0, 1, where=(df_hasil['fish_HSI'] < config.habitat_threshold),
                     alpha=0.2, color='red')
-    ax4.set_title('🐟 TINGKAT KESESUAIAN HABITAT', fontweight='bold')
+    ax4.set_title('🐟 HABITAT SUITABILITY LEVEL', fontweight='bold')
     ax4.set_ylabel('HSI (0-1)')
     ax4.set_ylim(0, 1.05)
     ax4.legend(fontsize=9)
@@ -4489,7 +4489,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
     ax5.axhline(80, color='green', linestyle=':', alpha=0.7, label='Excellent (>80)')
     ax5.axhline(60, color='orange', linestyle=':', alpha=0.7, label='Good (60-80)')
     ax5.axhline(40, color='red', linestyle=':', alpha=0.7, label='Fair (40-60)')
-    ax5.set_title('🌿 INDEKS KESEHATAN EKOSISTEM', fontweight='bold')
+    ax5.set_title('🌿 ECOSYSTEM HEALTH INDEX', fontweight='bold')
     ax5.set_ylabel('Health Index (%)')
     ax5.set_ylim(0, 105)
     ax5.legend(fontsize=9)
@@ -4507,7 +4507,7 @@ def create_morphology_ecology_dashboard(df_hasil, morphology_data, output_dir=No
         ax6.fill_between(df_hasil['date'], 30, 100,
                         where=(df_hasil['flow_alteration_index'] * 100 > 30),
                         alpha=0.2, color='red')
-        ax6.set_title('💧 PERUBAHAN POLA ALIRAN AIR', fontweight='bold')
+        ax6.set_title('💧 FLOW PATTERN CHANGES', fontweight='bold')
         ax6.set_ylabel('Index (%)')
         ax6.legend(fontsize=9)
         ax6.grid(True, alpha=0.3)
@@ -4583,7 +4583,7 @@ def create_water_balance_dashboard(df_hasil, monthly_summary, morphology_data=No
                      df_hasil['wb_cum_input'],
                      df_hasil['wb_cum_output'],
                      alpha=0.3, color='yellow', label='Cumulative Residual')
-    ax1.set_title('📊 TOTAL KESEIMBANGAN AIR', fontweight='bold', fontsize=13)
+    ax1.set_title('📊 TOTAL WATER BALANCE', fontweight='bold', fontsize=13)
     ax1.set_ylabel('Cumulative (mm)', fontsize=11)
     ax1.legend(loc='upper left', fontsize=10)
     ax1.grid(True, alpha=0.3)
