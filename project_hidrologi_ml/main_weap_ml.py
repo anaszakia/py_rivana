@@ -3477,15 +3477,29 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
     """
     print_section("BASELINE COMPARISON: ML vs TRADITIONAL METHODS", "📊")
     
-    baseline = BaselineComparison()
-    
-    # Calculate baseline methods
-    print("\n🔄 Menghitung method tradisional...")
-    df = baseline.rational_method(df)
-    df = baseline.simple_water_balance(df)
-    df = baseline.curve_number_method(df)
-    df = baseline.persistence_model(df)
-    df = baseline.moving_average_model(df, window=7)
+    try:
+        baseline = BaselineComparison()
+        
+        # Calculate baseline methods
+        print("\n🔄 Menghitung method tradisional...")
+        df = baseline.rational_method(df)
+        df = baseline.simple_water_balance(df)
+        df = baseline.curve_number_method(df)
+        df = baseline.persistence_model(df)
+        df = baseline.moving_average_model(df, window=7)
+    except Exception as e:
+        print(f"❌ Error calculating baseline methods: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'error': str(e),
+            'status': 'FAILED',
+            'conclusion': {
+                'status': 'ERROR',
+                'message': f'Failed to calculate baseline methods: {str(e)}',
+                'recommendation': 'Check input data quality and completeness'
+            }
+        }
     
     # Merge dengan df_hasil untuk comparison
     df_comparison = df_hasil.copy()
@@ -3507,12 +3521,26 @@ def run_baseline_comparison(df, df_hasil, validator, output_dir='results'):
     
     # Compare for main component (runoff/runoff)
     print("\n🔍 Membandingkan performa ML vs Baseline...")
-    results, improvements = baseline.compare_with_ml(
-        df_hasil, 
-        df_comparison, 
-        validator, 
-        component='runoff'
-    )
+    try:
+        results, improvements = baseline.compare_with_ml(
+            df_hasil, 
+            df_comparison, 
+            validator, 
+            component='runoff'
+        )
+    except Exception as e:
+        print(f"❌ Error during comparison: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'error': str(e),
+            'status': 'FAILED',
+            'conclusion': {
+                'status': 'ERROR',
+                'message': f'Failed to compare with baselines: {str(e)}',
+                'recommendation': 'Check that runoff data exists in both ML and baseline results'
+            }
+        }
     
     # Compile comprehensive report
     comprehensive_results = {
