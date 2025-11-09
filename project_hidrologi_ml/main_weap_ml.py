@@ -5943,13 +5943,13 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     # Simpan hasil
     print_section("MENYIMPAN DATA CSV", "💾")
     df_hasil.to_csv(os.path.join(save_dir, 'RIVANA_Hasil_Complete.csv'), index=False)
-    print(f"✅ Saved: Complete_Results.csv")
+    print(f"✅ Saved: RIVANA_Hasil_Complete.csv")
 
     monthly_wb.to_csv(os.path.join(save_dir, 'RIVANA_Monthly_WaterBalance.csv'), index=False)
-    print(f"✅ Saved: Monthly_WaterBalance.csv")
+    print(f"✅ Saved: RIVANA_Monthly_WaterBalance.csv")
     
-    df_prediksi.to_csv(os.path.join(save_dir, '30Day_Forecast.csv'), index=False)
-    print(f"✅ Saved: 30Day_Forecast.csv")
+    df_prediksi.to_csv(os.path.join(save_dir, 'RIVANA_Prediksi_30Hari.csv'), index=False)
+    print(f"✅ Saved: RIVANA_Prediksi_30Hari.csv")
 
     print_section("RINGKASAN OUTPUT", "📋")
     print(f"� Semua file saved di: {os.path.abspath(save_dir)}")
@@ -5977,7 +5977,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
     data_files = [
         'RIVANA_Hasil_Complete.csv',
         'RIVANA_Monthly_WaterBalance.csv',
-        '30Day_Forecast.csv',
+        'RIVANA_Prediksi_30Hari.csv',
         'RIVANA_WaterBalance_Validation.json',
         'RIVANA_Model_Validation_Complete.json',
         'RIVANA_Baseline_Comparison.json',
