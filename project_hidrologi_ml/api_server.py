@@ -459,11 +459,6 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 print(f"âœ… CSV loaded successfully: {len(df)} rows, {len(df.columns)} columns")
                 print(f"ðŸ“‹ CSV Columns: {list(df.columns)[:20]}")  # Print first 20 columns
                 
-                # â­ BACKWARD COMPATIBILITY: Support old 'reservoir' column name
-                if 'reservoir' in df.columns and 'reservoir' not in df.columns:
-                    print(f"âš ï¸ Using legacy column name 'reservoir' (renaming to 'reservoir')")
-                    df.rename(columns={'reservoir': 'reservoir'}, inplace=True)
-                
                 # Statistik Data - WITH SAFE CHECKS USING HELPER FUNCTION
                 summary["statistik_data"] = {
                     "total_hari": len(df) if not df.empty else 0,
