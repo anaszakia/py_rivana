@@ -1968,7 +1968,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 os.makedirs(result_dir, exist_ok=True)
                 # Jalankan proses di thread terpisah
                 thread = threading.Thread(
-                    targevapotranspiration=run_hidrologi_process,
+                    target=run_hidrologi_process,
                     args=(job_id, params, result_dir)
                 )
                 thread.daemon = True
@@ -2096,7 +2096,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                         lat=latitude,
                         start=start,
                         end=end,
-                        output_dir=result_dir
+                        output_dir=result_dir,
+                        lang='en'  # Force English for API calls
                     )
                     
                 except Exception as main_error:

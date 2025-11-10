@@ -3700,6 +3700,12 @@ def generate_baseline_conclusion(results):
 # ==========================================
 def create_weap_dashboard(df_hasil, df_prediksi, output_dir=None):
     """Dashboard RIVANA"""
+    import os
+    from translations import get_text
+    
+    # Get language from environment
+    lang = os.environ.get('RIVANA_LANG', 'en')
+    
     print_section("MEMBUAT DASHBOARD RIVANA", "📊")
 
     # ========== PERBAIKAN 1: VALIDASI DATA LEBIH KETAT ==========
@@ -5559,7 +5565,7 @@ def create_baseline_comparison_dashboard(baseline_results, df_hasil, output_dir=
 # ==========================================
 # MAIN PROGRAM (FIXED)
 # ==========================================
-def main(lon=None, lat=None, start=None, end=None, output_dir=None):
+def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
     """
     Main program execution
     
@@ -5569,8 +5575,12 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None):
         start (str): Date mulai (format YYYY-MM-DD)
         end (str): Date akhir (format YYYY-MM-DD)
         output_dir (str, optional): Direktori untuk saving output. Default None.
+        lang (str, optional): Language for visualizations ('en' or 'id'). Default 'en'.
     """
     import os
+    
+    # Set language for translations
+    os.environ['RIVANA_LANG'] = lang
     
     # HANYA MINTA INPUT JIKA PARAMETER KOSONG
     if lon is None or lat is None or start is None or end is None:
