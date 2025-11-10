@@ -1,3 +1,4 @@
+#update ya
 import os
 
 # Suppress TensorFlow INFO messages (optional - untuk mengurangi output log)
