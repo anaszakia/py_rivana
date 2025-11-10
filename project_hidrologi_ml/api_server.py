@@ -759,12 +759,12 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     }
                 
                 # â­ Morfologi - TAMBAHKAN ke hasil_analisis (for view SECTION 4)
-                morph_cols = ['channel_width', 'slope', 'sediment_load']
+                morph_cols = ['channel_width', 'slope', 'total_sedimentt']
                 if any(col in df.columns for col in morph_cols):
                     morfologi_data = {
                         "lebar_sungai": f"{df['channel_width'].mean():.2f} m" if 'channel_width' in df.columns else "N/A",
                         "kemiringan": f"{df['slope'].mean():.2f}Â°" if 'slope' in df.columns else "N/A",
-                        "beban_sediment": f"{df['sediment_load'].mean():.2f} ton/hari" if 'sediment_load' in df.columns else "N/A",
+                        "beban_sediment": f"{df['total_sedimentt'].mean():.2f} ton/hari" if 'total_sedimentt' in df.columns else "N/A",
                         "erosion_rata_rata": f"{df['erosion_rate'].mean():.2f} mm/tahun" if 'erosion_rate' in df.columns else "N/A"
                     }
                     summary["morfologi"] = morfologi_data
@@ -872,7 +872,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 kondisi_sungai_soil_storage = {}
                 
                 # Morfologi Sungai
-                if all(col in df.columns for col in ['channel_width', 'slope', 'sediment_load']):
+                if all(col in df.columns for col in ['channel_width', 'slope', 'total_sedimentt']):
                     kondisi_sungai_soil_storage["morfologi_sungai"] = {
                         "lebar_sungai": {
                             "rata_rata": f"{df['channel_width'].mean():.2f} m",
@@ -885,9 +885,9 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "kategori": "Landai" if df['slope'].mean() < 0.001 else "Medium" if df['slope'].mean() < 0.01 else "Curam"
                         },
                         "beban_sediment": {
-                            "rata_rata": f"{df['sediment_load'].mean():.2f} kg/s",
-                            "total": f"{df['sediment_load'].sum():.2f} kg",
-                            "status": "Normal" if df['sediment_load'].mean() < 100 else "High - Perlu Drednging"
+                            "rata_rata": f"{df['total_sedimentt'].mean():.2f} kg/s",
+                            "total": f"{df['total_sedimentt'].sum():.2f} kg",
+                            "status": "Normal" if df['total_sedimentt'].mean() < 100 else "High - Perlu Drednging"
                         }
                     }
                 
@@ -922,7 +922,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         },
                         "transport_sediment": {
                             "capacity": f"{df['sediment_transport'].mean():.2f} kg/s",
-                            "efisiensi": f"{(df['sediment_transport'].mean() / df['sediment_load'].mean() * 100):.1f}%" if 'sediment_load' in df.columns and df['sediment_load'].mean() > 0 else "N/A"
+                            "efisiensi": f"{(df['sediment_transport'].mean() / df['total_sedimentt'].mean() * 100):.1f}%" if 'total_sedimentt' in df.columns and df['total_sedimentt'].mean() > 0 else "N/A"
                         }
                     }
                 
@@ -946,11 +946,11 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             
             if os.path.exists(csv_file):
                 # Berdasarkan Morfologi
-                if 'sediment_load' in df.columns and df['sediment_load'].mean() > 100:
+                if 'total_sedimentt' in df.columns and df['total_sedimentt'].mean() > 100:
                     saran_perbaikan.append({
                         "kategori": "Sedimentasi",
                         "prioritas": "TINGGI",
-                        "masalah": f"Beban sediment high ({df['sediment_load'].mean():.2f} kg/s)",
+                        "masalah": f"Beban sediment high ({df['total_sedimentt'].mean():.2f} kg/s)",
                         "solusi": [
                             "Lakukan dredging/pengerukan sungai secara berkala",
                             "Bangun sedimentt trap di hulu",
@@ -2587,4 +2587,5 @@ if __name__ == "__main__":
         print(f"âœ… Using host from command line: {host}")
     
     run_server(port, host)
+
 
