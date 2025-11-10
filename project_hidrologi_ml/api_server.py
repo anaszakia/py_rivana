@@ -507,11 +507,20 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 
                 # Ekologi (jika ada)
                 if 'ecosystem_health' in df.columns:
+                    eco_health_value = df['ecosystem_health'].mean() * 100
                     summary["analysis_results"]["ecosystem_health"] = {
-                        "index": f"{df['ecosystem_health'].mean() * 100:.1f}%",
-                        "status": self.get_ecosystem_status(df['ecosystem_health'].mean() * 100),
+                        "index": f"{eco_health_value:.1f}%",
+                        "status": self.get_ecosystem_status(eco_health_value),
                         "habitat_fish": f"{df['fish_HSI'].mean():.2f}" if 'fish_HSI' in df.columns else "N/A",
                         "habitat_vegetation": f"{df['vegetation_HSI'].mean():.2f}" if 'vegetation_HSI' in df.columns else "N/A"
+                    }
+                else:
+                    # Initialize with default values if ecosystem data not available
+                    summary["analysis_results"]["ecosystem_health"] = {
+                        "index": "N/A",
+                        "status": "Data not available",
+                        "habitat_fish": "N/A",
+                        "habitat_vegetation": "N/A"
                     }
             else:
                 # CSV file tidak ditemukan
@@ -1195,13 +1204,21 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             # Rekomendasi berdasarkan reliability
             reliability_text = summary.get("statistik_data", {}).get("reliability_sistem", {}).get("rata_rata", "")
             if reliability_text and isinstance(reliability_text, str):
-                reliability = float(reliability_text.replace("%", ""))
-                if reliability < 75:
-                    recommendations.append({
-                        "kategori": "System Reliability",
-                        "prioritas": "High",
-                        "rekomendasi": "Tingkatkan reliability sistem dengan meningkatkan capacity Retention Pond atau menambah sumber air alternatif"
-                    })
+                # Validate before converting to float - handle N/A values
+                if reliability_text not in ["N/A", "Data tidak tersedia", ""]:
+                    try:
+                        reliability_value = reliability_text.replace("%", "").strip()
+                        # Check if it's a valid number
+                        if reliability_value.replace(".", "", 1).isdigit():
+                            reliability = float(reliability_value)
+                            if reliability < 75:
+                                recommendations.append({
+                                    "kategori": "System Reliability",
+                                    "prioritas": "High",
+                                    "rekomendasi": "Tingkatkan reliability sistem dengan meningkatkan capacity Retention Pond atau menambah sumber air alternatif"
+                                })
+                    except (ValueError, AttributeError) as e:
+                        print(f"⚠️ Warning: Could not convert reliability '{reliability_text}' to float: {e}")
             
             # Rekomendasi berdasarkan supply
             supply_status = summary.get("analysis_results", {}).get("supply_air", {}).get("status_supply", "")
@@ -2393,7 +2410,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                 except:
                     pass
                 
-                # Restore stdout/stderr
+                # Restore stdout/stderr SEBELUM keluar dari context manager
                 sys.stdout = original_stdout
                 sys.stderr = original_stderr
                 
@@ -2403,15 +2420,20 @@ def run_hidrologi_process(job_id, params, result_dir):
                 except:
                     pass
         
-        # Tunggu sebentar lagi sevapotranspirationelah file log ditutup untuk memastikan OS flush ke disk
+        # Tunggu sebentar lagi setelah file log ditutup untuk memastikan OS flush ke disk
         time.sleep(1)
         
-        # Log final message ke console (bukan ke file)
-        print(f"[INFO] Log file closed and flushed for job {job_id}")
-        print(f"[INFO] Log file path: {log_file_path}")
-        print(f"[INFO] Log file exists: {os.path.exists(log_file_path)}")
-        if os.path.exists(log_file_path):
-            print(f"[INFO] Log file size: {os.path.getsize(log_file_path)} bytes")
+        # Log final message ke console (bukan ke file) - SETELAH sys.stdout sudah di-restore
+        # Gunakan original_stdout untuk memastikan tidak ada reference ke file yang sudah tertutup
+        try:
+            original_stdout.write(f"[INFO] Log file closed and flushed for job {job_id}\n")
+            original_stdout.write(f"[INFO] Log file path: {log_file_path}\n")
+            original_stdout.write(f"[INFO] Log file exists: {os.path.exists(log_file_path)}\n")
+            if os.path.exists(log_file_path):
+                original_stdout.write(f"[INFO] Log file size: {os.path.getsize(log_file_path)} bytes\n")
+            original_stdout.flush()
+        except:
+            pass  # Gagal print tidak masalah, yang penting proses utama selesai
                 
     except Exception as e:
         RESULTS[job_id]["status"] = "failed"
