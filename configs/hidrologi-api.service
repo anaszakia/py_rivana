@@ -1,0 +1,52 @@
+# Systemd Service Configuration for Hidrologi ML API
+# Location: /etc/systemd/system/hidrologi-api.service
+# Enable: sudo systemctl enable hidrologi-api.service
+# Start: sudo systemctl start hidrologi-api.service
+
+[Unit]
+Description=Hidrologi ML API Service
+After=network.target
+Documentation=https://github.com/YOUR_USERNAME/project_hidrologi_ml
+
+[Service]
+Type=simple
+User=hidrologi
+Group=hidrologi
+WorkingDirectory=/home/hidrologi/project_hidrologi_ml
+
+# Environment
+Environment="PATH=/home/hidrologi/project_hidrologi_ml/venv/bin"
+Environment="ENVIRONMENT=production"
+Environment="PYTHONUNBUFFERED=1"
+
+# Start command
+ExecStart=/home/hidrologi/project_hidrologi_ml/venv/bin/python3 /home/hidrologi/project_hidrologi_ml/project_hidrologi_ml/api_server.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Logging
+StandardOutput=append:/home/hidrologi/project_hidrologi_ml/logs/api.log
+StandardError=append:/home/hidrologi/project_hidrologi_ml/logs/api_error.log
+SyslogIdentifier=hidrologi-api
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/hidrologi/project_hidrologi_ml/results /home/hidrologi/project_hidrologi_ml/temp /home/hidrologi/project_hidrologi_ml/logs
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Timeouts
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
