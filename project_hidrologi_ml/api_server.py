@@ -1,4 +1,4 @@
-import http.server
+﻿import http.server
 import socketserver
 import json
 import os
@@ -766,9 +766,23 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 # â­ Morfologi - TAMBAHKAN ke hasil_analisis (for view SECTION 4)
                 morph_cols = ['channel_width', 'slope', 'total_sedimentt']
                 if any(col in df.columns for col in morph_cols):
+                    # Safe slope formatting with better precision for small values
+                    slope_value = df['slope'].mean() if 'slope' in df.columns else None
+                    if slope_value is not None and slope_value > 0:
+                        if slope_value < 0.01:
+                            slope_str = f"{slope_value:.6f}° (Very Flat)"
+                        elif slope_value < 0.1:
+                            slope_str = f"{slope_value:.4f}°"
+                        else:
+                            slope_str = f"{slope_value:.2f}°"
+                    elif slope_value == 0:
+                        slope_str = "0° (Flat Area)"
+                    else:
+                        slope_str = "N/A"
+                    
                     morfologi_data = {
                         "lebar_sungai": f"{df['channel_width'].mean():.2f} m" if 'channel_width' in df.columns else "N/A",
-                        "kemiringan": f"{df['slope'].mean():.2f}Â°" if 'slope' in df.columns else "N/A",
+                        "kemiringan": slope_str,
                         "beban_sediment": f"{df['total_sedimentt'].mean():.2f} ton/hari" if 'total_sedimentt' in df.columns else "N/A",
                         "erosion_rata_rata": f"{df['erosion_rate'].mean():.2f} mm/tahun" if 'erosion_rate' in df.columns else "N/A"
                     }
