@@ -595,8 +595,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "improvement": improvement_str,
                             "conclusion": baseline_data.get('conclusion', {})
                         }
+                        print(f"✅ Baseline comparison data loaded successfully")
                 except Exception as e:
-                    print(f"Warning: Could not read baseline comparison file: {e}")
+                    print(f"⚠️ Warning: Could not read baseline comparison file: {e}")
+                    summary["baseline_comparison"] = {"status": "File exists but could not be read"}
+            else:
+                print(f"ℹ️ Info: Baseline comparison file not found (optional): {baseline_file}")
+                summary["baseline_comparison"] = {"status": "Not available for this job"}
             
             # 3. Extract data tambahan dari CSV untuk morfologi, ekologi, dll
             if os.path.exists(csv_file):
