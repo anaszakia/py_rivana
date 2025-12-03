@@ -6173,11 +6173,3 @@ if __name__ == "__main__":
         else:
             print("\n❌ Pilihan tidak valid, menggunakan mode AUTO")
             df, df_hasil, df_prediksi = main(lon=110.42, lat=-7.03, start="2023-01-01", end="2024-05-01")
-
-
-
-
-
-
-
-
