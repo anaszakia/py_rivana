@@ -625,7 +625,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     file_size = os.path.getsize(twi_file)
                     print(f"File size: {file_size} bytes ({file_size/1024:.2f} KB)")
                     
-                    with open(twi_file, 'r') as f:
+                    with open(twi_file, 'r', encoding='utf-8') as f:
                         twi_analysis = json.load(f)
                     
                     print(f"✅ TWI JSON loaded successfully")
@@ -637,6 +637,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     rtho_recs_raw = twi_analysis.get('rtho_recommendations', [])
                     drainage_recs_raw = twi_analysis.get('drainage_recommendations', [])  # 🚰 NEW: Drainage
                     twi_summary = twi_analysis.get('summary', {})
+                    
+                    print(f"📊 Extracted data:")
+                    print(f"   - twi_data keys: {list(twi_data.keys()) if twi_data else 'None'}")
+                    print(f"   - flood_zones count: {len(flood_zones_raw)}")
+                    print(f"   - rtho_recommendations count: {len(rtho_recs_raw)}")
+                    print(f"   - drainage_recommendations count: {len(drainage_recs_raw)}")
+                    print(f"   - summary keys: {list(twi_summary.keys()) if twi_summary else 'None'}")
                     
                     # Map flood zones to expected format for blade template
                     flood_zones_mapped = []
