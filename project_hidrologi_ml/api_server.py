@@ -630,118 +630,118 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     
                     print(f"✅ TWI JSON loaded successfully")
                     print(f"Keys in TWI data: {list(twi_analysis.keys())}")
+                    
+                    # Extract TWI data
+                    twi_data = twi_analysis.get('twi_data', {})
+                    flood_zones_raw = twi_analysis.get('flood_zones', [])
+                    rtho_recs_raw = twi_analysis.get('rtho_recommendations', [])
+                    drainage_recs_raw = twi_analysis.get('drainage_recommendations', [])  # 🚰 NEW: Drainage
+                    twi_summary = twi_analysis.get('summary', {})
+                    
+                    # Map flood zones to expected format for blade template
+                    flood_zones_mapped = []
+                    for zone in flood_zones_raw:
+                        coords = zone.get('coordinates', {})
+                        flood_zones_mapped.append({
+                            'risk': zone.get('risk_level', 'N/A'),
+                            'twi_value': zone.get('twi_enhanced', 0),
+                            'area_ha': zone.get('area_affected_ha', 0),
+                            'lat': coords.get('latitude', 0),
+                            'lon': coords.get('longitude', 0)
+                        })
+                    
+                    # Map RTH recommendations to expected format
+                    rtho_recs_mapped = []
+                    for rec in rtho_recs_raw:
+                        coords = rec.get('coordinates', {})
+                        rtho_recs_mapped.append({
+                            'priority': rec.get('priority', 'N/A'),
+                            'estimated_area_ha': rec.get('area_recommended_ha', 0),
+                            'lat': coords.get('latitude', 0),
+                            'lon': coords.get('longitude', 0),
+                            'reason': rec.get('location_purpose', ' '.join(rec.get('reasons', [])) if isinstance(rec.get('reasons'), list) else 'Strategic location for flood mitigation')
+                        })
+                    
+                    # 🚰 Map Drainage recommendations to expected format
+                    drainage_recs_mapped = []
+                    for drain in drainage_recs_raw:
+                        coords = drain.get('coordinates', {})
+                        specs = drain.get('specifications', {})
+                        capacity = drain.get('capacity', {})
+                        benefits = drain.get('expected_benefits', {})
+                        maintenance = drain.get('maintenance_requirements', {})
                         
-                        # Extract TWI data
-                        twi_data = twi_analysis.get('twi_data', {})
-                        flood_zones_raw = twi_analysis.get('flood_zones', [])
-                        rtho_recs_raw = twi_analysis.get('rtho_recommendations', [])
-                        drainage_recs_raw = twi_analysis.get('drainage_recommendations', [])  # 🚰 NEW: Drainage
-                        twi_summary = twi_analysis.get('summary', {})
-                        
-                        # Map flood zones to expected format for blade template
-                        flood_zones_mapped = []
-                        for zone in flood_zones_raw:
-                            coords = zone.get('coordinates', {})
-                            flood_zones_mapped.append({
-                                'risk': zone.get('risk_level', 'N/A'),
-                                'twi_value': zone.get('twi_enhanced', 0),
-                                'area_ha': zone.get('area_affected_ha', 0),
+                        drainage_recs_mapped.append({
+                            'location_id': drain.get('location_id', 'N/A'),
+                            'priority': drain.get('priority', 'N/A'),
+                            'drainage_type': drain.get('drainage_type', 'N/A'),
+                            'necessity_score': drain.get('necessity_score', 0),
+                            'coordinates': {
                                 'lat': coords.get('latitude', 0),
                                 'lon': coords.get('longitude', 0)
-                            })
-                        
-                        # Map RTH recommendations to expected format
-                        rtho_recs_mapped = []
-                        for rec in rtho_recs_raw:
-                            coords = rec.get('coordinates', {})
-                            rtho_recs_mapped.append({
-                                'priority': rec.get('priority', 'N/A'),
-                                'estimated_area_ha': rec.get('area_recommended_ha', 0),
-                                'lat': coords.get('latitude', 0),
-                                'lon': coords.get('longitude', 0),
-                                'reason': rec.get('location_purpose', ' '.join(rec.get('reasons', [])) if isinstance(rec.get('reasons'), list) else 'Strategic location for flood mitigation')
-                            })
-                        
-                        # 🚰 Map Drainage recommendations to expected format
-                        drainage_recs_mapped = []
-                        for drain in drainage_recs_raw:
-                            coords = drain.get('coordinates', {})
-                            specs = drain.get('specifications', {})
-                            capacity = drain.get('capacity', {})
-                            benefits = drain.get('expected_benefits', {})
-                            maintenance = drain.get('maintenance_requirements', {})
-                            
-                            drainage_recs_mapped.append({
-                                'location_id': drain.get('location_id', 'N/A'),
-                                'priority': drain.get('priority', 'N/A'),
-                                'drainage_type': drain.get('drainage_type', 'N/A'),
-                                'necessity_score': drain.get('necessity_score', 0),
-                                'coordinates': {
-                                    'lat': coords.get('latitude', 0),
-                                    'lon': coords.get('longitude', 0)
-                                },
-                                'specifications': {
-                                    'channel_width_m': specs.get('channel_width_m', 0),
-                                    'channel_depth_m': specs.get('channel_depth_m', 0),
-                                    'channel_slope_percent': specs.get('channel_slope_percent', 0),
-                                    'lining_type': specs.get('lining_type', 'N/A'),
-                                    'length_estimated_m': specs.get('length_estimated_m', 0)
-                                },
-                                'capacity': {
-                                    'design_capacity_m3_per_hour': capacity.get('design_capacity_m3_per_hour', 0),
-                                    'peak_flow_m3_per_second': capacity.get('peak_flow_m3_per_second', 0),
-                                    'catchment_area_ha': capacity.get('catchment_area_ha', 0)
-                                },
-                                'expected_benefits': {
-                                    'flood_reduction_percent': benefits.get('flood_reduction_percent', 0),
-                                    'ponding_time_reduction_hours': benefits.get('ponding_time_reduction_hours', 0),
-                                    'affected_area_ha': benefits.get('affected_area_ha', 0)
-                                },
-                                'maintenance_requirements': {
-                                    'cleaning_frequency': maintenance.get('cleaning_frequency', 'N/A'),
-                                    'inspection_frequency': maintenance.get('inspection_frequency', 'N/A'),
-                                    'estimated_annual_cost_million_idr': maintenance.get('estimated_annual_cost_million_idr', 0)
-                                },
-                                'reasons': drain.get('reasons', [])
-                            })
-                        
-                        summary["twi_analysis"] = {
-                            "twi_physics": f"{twi_data.get('twi_physics', 0):.2f}",
-                            "ml_correction_factor": f"{twi_data.get('correction_factor', 1.0):.2f}x",
-                            "twi_enhanced": f"{twi_data.get('twi_enhanced', 0):.2f}",
-                            "risk_level": twi_data.get('risk_level', 'N/A'),
-                            "flood_zones": {
-                                "total": len(flood_zones_mapped),
-                                "high_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'HIGH'),
-                                "moderate_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'MODERATE'),
-                                "low_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'LOW'),
-                                "zones_detail": flood_zones_mapped
                             },
-                            "rtho_recommendations": {
-                                "total": len(rtho_recs_mapped),
-                                "high_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'HIGH'),
-                                "moderate_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'MODERATE' or r.get('priority') == 'MEDIUM'),
-                                "total_area_ha": sum(r.get('estimated_area_ha', 0) for r in rtho_recs_mapped),
-                                "recommendations_detail": rtho_recs_mapped
+                            'specifications': {
+                                'channel_width_m': specs.get('channel_width_m', 0),
+                                'channel_depth_m': specs.get('channel_depth_m', 0),
+                                'channel_slope_percent': specs.get('channel_slope_percent', 0),
+                                'lining_type': specs.get('lining_type', 'N/A'),
+                                'length_estimated_m': specs.get('length_estimated_m', 0)
                             },
-                            "drainage_recommendations": {
-                                "total": len(drainage_recs_mapped),
-                                "high_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'HIGH'),
-                                "medium_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'MEDIUM'),
-                                "total_capacity_m3_per_hour": sum(d['capacity'].get('design_capacity_m3_per_hour', 0) for d in drainage_recs_mapped),
-                                "total_length_m": sum(d['specifications'].get('length_estimated_m', 0) for d in drainage_recs_mapped),
-                                "recommendations_detail": drainage_recs_mapped
+                            'capacity': {
+                                'design_capacity_m3_per_hour': capacity.get('design_capacity_m3_per_hour', 0),
+                                'peak_flow_m3_per_second': capacity.get('peak_flow_m3_per_second', 0),
+                                'catchment_area_ha': capacity.get('catchment_area_ha', 0)
                             },
-                            "summary": twi_summary,
-                            "interpretation": {
-                                "risk": "Area dengan risiko genangan tinggi" if twi_data.get('twi_enhanced', 0) >= 15 else "Area dengan drainase baik",
-                                "action": "Perlu mitigasi banjir dan RTH" if len(flood_zones_mapped) > 0 else "Monitoring rutin"
-                            }
+                            'expected_benefits': {
+                                'flood_reduction_percent': benefits.get('flood_reduction_percent', 0),
+                                'ponding_time_reduction_hours': benefits.get('ponding_time_reduction_hours', 0),
+                                'affected_area_ha': benefits.get('affected_area_ha', 0)
+                            },
+                            'maintenance_requirements': {
+                                'cleaning_frequency': maintenance.get('cleaning_frequency', 'N/A'),
+                                'inspection_frequency': maintenance.get('inspection_frequency', 'N/A'),
+                                'estimated_annual_cost_million_idr': maintenance.get('estimated_annual_cost_million_idr', 0)
+                            },
+                            'reasons': drain.get('reasons', [])
+                        })
+                    
+                    summary["twi_analysis"] = {
+                        "twi_physics": f"{twi_data.get('twi_physics', 0):.2f}",
+                        "ml_correction_factor": f"{twi_data.get('correction_factor', 1.0):.2f}x",
+                        "twi_enhanced": f"{twi_data.get('twi_enhanced', 0):.2f}",
+                        "risk_level": twi_data.get('risk_level', 'N/A'),
+                        "flood_zones": {
+                            "total": len(flood_zones_mapped),
+                            "high_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'HIGH'),
+                            "moderate_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'MODERATE'),
+                            "low_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'LOW'),
+                            "zones_detail": flood_zones_mapped
+                        },
+                        "rtho_recommendations": {
+                            "total": len(rtho_recs_mapped),
+                            "high_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'HIGH'),
+                            "moderate_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'MODERATE' or r.get('priority') == 'MEDIUM'),
+                            "total_area_ha": sum(r.get('estimated_area_ha', 0) for r in rtho_recs_mapped),
+                            "recommendations_detail": rtho_recs_mapped
+                        },
+                        "drainage_recommendations": {
+                            "total": len(drainage_recs_mapped),
+                            "high_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'HIGH'),
+                            "medium_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'MEDIUM'),
+                            "total_capacity_m3_per_hour": sum(d['capacity'].get('design_capacity_m3_per_hour', 0) for d in drainage_recs_mapped),
+                            "total_length_m": sum(d['specifications'].get('length_estimated_m', 0) for d in drainage_recs_mapped),
+                            "recommendations_detail": drainage_recs_mapped
+                        },
+                        "summary": twi_summary,
+                        "interpretation": {
+                            "risk": "Area dengan risiko genangan tinggi" if twi_data.get('twi_enhanced', 0) >= 15 else "Area dengan drainase baik",
+                            "action": "Perlu mitigasi banjir dan RTH" if len(flood_zones_mapped) > 0 else "Monitoring rutin"
                         }
-                        print(f"✅ TWI analysis data loaded successfully")
-                        print(f"   - Flood zones: {len(flood_zones_mapped)}")
-                        print(f"   - RTH recommendations: {len(rtho_recs_mapped)}")
-                        print(f"   - Drainage recommendations: {len(drainage_recs_mapped)}")
+                    }
+                    print(f"✅ TWI analysis data loaded successfully")
+                    print(f"   - Flood zones: {len(flood_zones_mapped)}")
+                    print(f"   - RTH recommendations: {len(rtho_recs_mapped)}")
+                    print(f"   - Drainage recommendations: {len(drainage_recs_mapped)}")
                 except Exception as e:
                     print(f"❌ Error reading TWI file: {e}")
                     import traceback
@@ -774,10 +774,6 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     }
             
             print(f"{'='*80}\n")
-                    summary["twi_analysis"] = {"status": "File exists but could not be read", "error": str(e)}
-            else:
-                print(f"ℹ️ Info: TWI analysis file not found (optional): {twi_file}")
-                summary["twi_analysis"] = {"status": "Not available for this job"}
             
             # 4. River Network Metadata JSON - 🌊 NEW!
             river_map_file = os.path.join(job_dir, 'RIVANA_River_Network_Metadata.json')
