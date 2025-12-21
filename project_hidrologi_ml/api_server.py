@@ -613,10 +613,23 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             
             # 3. TWI Analysis JSON - 🌊 NEW!
             twi_file = os.path.join(job_dir, 'RIVANA_TWI_Analysis.json')
+            print(f"\n{'='*80}")
+            print(f"🔍 DEBUG: Checking TWI Analysis JSON")
+            print(f"{'='*80}")
+            print(f"Expected file path: {twi_file}")
+            print(f"File exists: {os.path.exists(twi_file)}")
+            
             if os.path.exists(twi_file):
                 try:
+                    print(f"✅ TWI file found, loading data...")
+                    file_size = os.path.getsize(twi_file)
+                    print(f"File size: {file_size} bytes ({file_size/1024:.2f} KB)")
+                    
                     with open(twi_file, 'r') as f:
                         twi_analysis = json.load(f)
+                    
+                    print(f"✅ TWI JSON loaded successfully")
+                    print(f"Keys in TWI data: {list(twi_analysis.keys())}")
                         
                         # Extract TWI data
                         twi_data = twi_analysis.get('twi_data', {})
@@ -663,8 +676,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                                 'priority': drain.get('priority', 'N/A'),
                                 'drainage_type': drain.get('drainage_type', 'N/A'),
                                 'necessity_score': drain.get('necessity_score', 0),
-                                'lat': coords.get('latitude', 0),
-                                'lon': coords.get('longitude', 0),
+                                'coordinates': {
+                                    'lat': coords.get('latitude', 0),
+                                    'lon': coords.get('longitude', 0)
+                                },
                                 'specifications': {
                                     'channel_width_m': specs.get('channel_width_m', 0),
                                     'channel_depth_m': specs.get('channel_depth_m', 0),
@@ -682,7 +697,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                                     'ponding_time_reduction_hours': benefits.get('ponding_time_reduction_hours', 0),
                                     'affected_area_ha': benefits.get('affected_area_ha', 0)
                                 },
-                                'maintenance': {
+                                'maintenance_requirements': {
                                     'cleaning_frequency': maintenance.get('cleaning_frequency', 'N/A'),
                                     'inspection_frequency': maintenance.get('inspection_frequency', 'N/A'),
                                     'estimated_annual_cost_million_idr': maintenance.get('estimated_annual_cost_million_idr', 0)
@@ -723,11 +738,42 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                                 "action": "Perlu mitigasi banjir dan RTH" if len(flood_zones_mapped) > 0 else "Monitoring rutin"
                             }
                         }
-                        print(f"✅ TWI analysis data loaded successfully ({len(flood_zones_mapped)} flood zones, {len(rtho_recs_mapped)} RTH recommendations, {len(drainage_recs_mapped)} drainage recommendations)")
+                        print(f"✅ TWI analysis data loaded successfully")
+                        print(f"   - Flood zones: {len(flood_zones_mapped)}")
+                        print(f"   - RTH recommendations: {len(rtho_recs_mapped)}")
+                        print(f"   - Drainage recommendations: {len(drainage_recs_mapped)}")
                 except Exception as e:
-                    print(f"⚠️ Warning: Could not read TWI analysis file: {e}")
+                    print(f"❌ Error reading TWI file: {e}")
                     import traceback
                     traceback.print_exc()
+                    summary["twi_analysis"] = {
+                        "status": "Error loading TWI analysis", 
+                        "error": str(e),
+                        "file_path": twi_file
+                    }
+            else:
+                print(f"⚠️ TWI analysis file not found: {twi_file}")
+                print(f"Checking if TWI Dashboard PNG exists...")
+                twi_dashboard = os.path.join(job_dir, 'RIVANA_TWI_Dashboard.png')
+                print(f"TWI Dashboard PNG: {os.path.exists(twi_dashboard)}")
+                
+                if os.path.exists(twi_dashboard):
+                    print(f"⚠️ ISSUE: TWI Dashboard generated but JSON not found!")
+                    print(f"This indicates TWI calculation ran but JSON export failed")
+                    summary["twi_analysis"] = {
+                        "status": "TWI Dashboard generated but JSON file missing",
+                        "error": "Check logs for TWI JSON export errors",
+                        "expected_file": "RIVANA_TWI_Analysis.json",
+                        "note": "Dashboard PNG exists, indicating TWI ran but JSON save failed"
+                    }
+                else:
+                    print(f"ℹ️ TWI analysis not available for this job")
+                    summary["twi_analysis"] = {
+                        "status": "Not available for this job",
+                        "note": "TWI analysis was not generated during processing"
+                    }
+            
+            print(f"{'='*80}\n")
                     summary["twi_analysis"] = {"status": "File exists but could not be read", "error": str(e)}
             else:
                 print(f"ℹ️ Info: TWI analysis file not found (optional): {twi_file}")
