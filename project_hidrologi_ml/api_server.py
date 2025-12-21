@@ -1,4 +1,4 @@
-﻿import http.server
+import http.server
 import socketserver
 import json
 import os
@@ -26,34 +26,36 @@ API SERVER HIDROLOGI ML (RIVANA)
 
 Output Files Generated:
 -----------------------
-PNG Files (7-8):
-  1. Hydrology_Dashboard.png - Main dashboard
-  2. Enhanced_Dashboard.png - Enhanced visualization
-  3. Water_Balance_Dashboard.png - Water balance analysis
-  4. Morphometry_Summary.png - Morphology summary
-  5. Morphology_Ecology_Dashboard.png - Morphology & ecology
-  6. Baseline_Comparison.png - ML vs Traditional methods
-  7. river_network_map.png - 🌊 NEW: River network map (static visualization)
+PNG Files (7):
+  1. RIVANA_Dashboard.png - Main dashboard
+  2. RIVANA_Enhanced_Dashboard.png - Enhanced visualization
+  3. RIVANA_Water_Balance_Dashboard.png - Water balance analysis
+  4. RIVANA_Morphometry_Summary.png - Morphology summary
+  5. RIVANA_Morphology_Ecology_Dashboard.png - Morphology & ecology
+  6. RIVANA_Baseline_Comparison.png - ML vs Traditional methods
+  7. RIVANA_TWI_Dashboard.png - 🌊 NEW: TWI Analysis Dashboard (flood zones & RTH)
 
 HTML Files (1):
-  1. interactive_river_map.html - 🗺️ NEW: Interactive river map
+  1. RIVANA_Interactive_River_Map.html - 🗺️ NEW: Interactive river map
      (Can be opened in browser, includes zoom, layer toggle, and markers)
 
 CSV Files (4):
-  1. Complete_Results.csv - Complete simulation results
-  2. Monthly_WaterBalance.csv - Monthly water balance
-  3. 30Day_Forecast.csv - 30-day rainfall & reservoir forecast
+  1. RIVANA_Hasil_Complete.csv - Complete simulation results
+  2. RIVANA_Monthly_WaterBalance.csv - Monthly water balance
+  3. RIVANA_Prediksi_30Hari.csv - 30-day rainfall & reservoir forecast
   4. GEE_Raw_Data.csv - ⭐ Raw satellite data from Google Earth Engine
-     (Columns: Date, Rainfall, Temperature, ET, Soil Moisture, NDVI, LST, etc.)
+     (Columns: date, longitude, latitude, elevation_m, slope_degree, rainfall, 
+      temperature, soil_moisture, ndvi, evapotranspiration)
      Sorted by date for historical analysis
 
-JSON Files (6):
-  1. WaterBalance_Validation.json - Water balance validation (error ≤ 5%)
-  2. Model_Validation_Complete.json - NSE, R², PBIAS, RMSE metrics
-  3. baseline_comparison.json - ML vs Traditional comparison results
-  4. model_validation_report.json - Detailed validation report
-  5. river_network_metadata.json - 🌊 NEW: River map metadata & characteristics
+JSON Files (7):
+  1. RIVANA_WaterBalance_Validation.json - Water balance validation (error ≤ 5%)
+  2. RIVANA_Model_Validation_Complete.json - NSE, R², PBIAS, RMSE metrics
+  3. RIVANA_Baseline_Comparison.json - ML vs Traditional comparison results
+  4. RIVANA_Model_Validation_Report.json - Detailed validation report
+  5. RIVANA_River_Network_Metadata.json - 🌊 River map metadata & characteristics
   6. GEE_Data_Metadata.json - ⭐ GEE data sources & statistics
+  7. RIVANA_TWI_Analysis.json - 🌊 NEW: TWI analysis, flood zones, RTH & drainage recommendations
 
 Additional Files:
   - params.json - Input parameterers
@@ -205,7 +207,8 @@ def load_existing_jobs():
         html_files = [f for f in os.listdir(job_dir) if f.endswith('.html')]  # 🌊 NEW: Detect HTML files
         
         # 🌊 Check for river map files
-        has_river_map = any('peta_aliran_sungai' in f for f in png_files + html_files + json_files)
+        has_river_map = any('River_Map' in f or 'River_Network' in f for f in png_files + html_files + json_files)
+        has_twi = any('TWI' in f for f in png_files + json_files)
         
         # Determine status based on files
         if len(png_files) > 0 or len(csv_files) > 0:
@@ -235,9 +238,14 @@ def load_existing_jobs():
             },
             "river_map": {  # 🌊 NEW: River map info
                 "available": has_river_map,
-                "interactive_html": any('interactive_river_map.html' in f for f in html_files),
-                "static_png": any('river_network_map.png' in f for f in png_files),
-                "metadata_json": any('river_network_metadata.json' in f for f in json_files)
+                "interactive_html": any('RIVANA_Interactive_River_Map.html' in f for f in html_files),
+                "static_png": any('RIVANA_River_Network_Map.png' in f for f in png_files),
+                "metadata_json": any('RIVANA_River_Network_Metadata.json' in f for f in json_files)
+            },
+            "twi_analysis": {  # 🌊 NEW: TWI analysis info
+                "available": has_twi,
+                "dashboard_png": any('RIVANA_TWI_Dashboard.png' in f for f in png_files),
+                "analysis_json": any('RIVANA_TWI_Analysis.json' in f for f in json_files)
             },
             "progress": 100
         }
@@ -603,7 +611,148 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 print(f"ℹ️ Info: Baseline comparison file not found (optional): {baseline_file}")
                 summary["baseline_comparison"] = {"status": "Not available for this job"}
             
-            # 3. Extract data tambahan dari CSV untuk morfologi, ekologi, dll
+            # 3. TWI Analysis JSON - 🌊 NEW!
+            twi_file = os.path.join(job_dir, 'RIVANA_TWI_Analysis.json')
+            if os.path.exists(twi_file):
+                try:
+                    with open(twi_file, 'r') as f:
+                        twi_analysis = json.load(f)
+                        
+                        # Extract TWI data
+                        twi_data = twi_analysis.get('twi_data', {})
+                        flood_zones_raw = twi_analysis.get('flood_zones', [])
+                        rtho_recs_raw = twi_analysis.get('rtho_recommendations', [])
+                        drainage_recs_raw = twi_analysis.get('drainage_recommendations', [])  # 🚰 NEW: Drainage
+                        twi_summary = twi_analysis.get('summary', {})
+                        
+                        # Map flood zones to expected format for blade template
+                        flood_zones_mapped = []
+                        for zone in flood_zones_raw:
+                            coords = zone.get('coordinates', {})
+                            flood_zones_mapped.append({
+                                'risk': zone.get('risk_level', 'N/A'),
+                                'twi_value': zone.get('twi_enhanced', 0),
+                                'area_ha': zone.get('area_affected_ha', 0),
+                                'lat': coords.get('latitude', 0),
+                                'lon': coords.get('longitude', 0)
+                            })
+                        
+                        # Map RTH recommendations to expected format
+                        rtho_recs_mapped = []
+                        for rec in rtho_recs_raw:
+                            coords = rec.get('coordinates', {})
+                            rtho_recs_mapped.append({
+                                'priority': rec.get('priority', 'N/A'),
+                                'estimated_area_ha': rec.get('area_recommended_ha', 0),
+                                'lat': coords.get('latitude', 0),
+                                'lon': coords.get('longitude', 0),
+                                'reason': rec.get('location_purpose', ' '.join(rec.get('reasons', [])) if isinstance(rec.get('reasons'), list) else 'Strategic location for flood mitigation')
+                            })
+                        
+                        # 🚰 Map Drainage recommendations to expected format
+                        drainage_recs_mapped = []
+                        for drain in drainage_recs_raw:
+                            coords = drain.get('coordinates', {})
+                            specs = drain.get('specifications', {})
+                            capacity = drain.get('capacity', {})
+                            benefits = drain.get('expected_benefits', {})
+                            maintenance = drain.get('maintenance_requirements', {})
+                            
+                            drainage_recs_mapped.append({
+                                'location_id': drain.get('location_id', 'N/A'),
+                                'priority': drain.get('priority', 'N/A'),
+                                'drainage_type': drain.get('drainage_type', 'N/A'),
+                                'necessity_score': drain.get('necessity_score', 0),
+                                'lat': coords.get('latitude', 0),
+                                'lon': coords.get('longitude', 0),
+                                'specifications': {
+                                    'channel_width_m': specs.get('channel_width_m', 0),
+                                    'channel_depth_m': specs.get('channel_depth_m', 0),
+                                    'channel_slope_percent': specs.get('channel_slope_percent', 0),
+                                    'lining_type': specs.get('lining_type', 'N/A'),
+                                    'length_estimated_m': specs.get('length_estimated_m', 0)
+                                },
+                                'capacity': {
+                                    'design_capacity_m3_per_hour': capacity.get('design_capacity_m3_per_hour', 0),
+                                    'peak_flow_m3_per_second': capacity.get('peak_flow_m3_per_second', 0),
+                                    'catchment_area_ha': capacity.get('catchment_area_ha', 0)
+                                },
+                                'expected_benefits': {
+                                    'flood_reduction_percent': benefits.get('flood_reduction_percent', 0),
+                                    'ponding_time_reduction_hours': benefits.get('ponding_time_reduction_hours', 0),
+                                    'affected_area_ha': benefits.get('affected_area_ha', 0)
+                                },
+                                'maintenance': {
+                                    'cleaning_frequency': maintenance.get('cleaning_frequency', 'N/A'),
+                                    'inspection_frequency': maintenance.get('inspection_frequency', 'N/A'),
+                                    'estimated_annual_cost_million_idr': maintenance.get('estimated_annual_cost_million_idr', 0)
+                                },
+                                'reasons': drain.get('reasons', [])
+                            })
+                        
+                        summary["twi_analysis"] = {
+                            "twi_physics": f"{twi_data.get('twi_physics', 0):.2f}",
+                            "ml_correction_factor": f"{twi_data.get('correction_factor', 1.0):.2f}x",
+                            "twi_enhanced": f"{twi_data.get('twi_enhanced', 0):.2f}",
+                            "risk_level": twi_data.get('risk_level', 'N/A'),
+                            "flood_zones": {
+                                "total": len(flood_zones_mapped),
+                                "high_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'HIGH'),
+                                "moderate_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'MODERATE'),
+                                "low_risk": sum(1 for z in flood_zones_mapped if z.get('risk') == 'LOW'),
+                                "zones_detail": flood_zones_mapped
+                            },
+                            "rtho_recommendations": {
+                                "total": len(rtho_recs_mapped),
+                                "high_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'HIGH'),
+                                "moderate_priority": sum(1 for r in rtho_recs_mapped if r.get('priority') == 'MODERATE' or r.get('priority') == 'MEDIUM'),
+                                "total_area_ha": sum(r.get('estimated_area_ha', 0) for r in rtho_recs_mapped),
+                                "recommendations_detail": rtho_recs_mapped
+                            },
+                            "drainage_recommendations": {
+                                "total": len(drainage_recs_mapped),
+                                "high_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'HIGH'),
+                                "medium_priority": sum(1 for d in drainage_recs_mapped if d.get('priority') == 'MEDIUM'),
+                                "total_capacity_m3_per_hour": sum(d['capacity'].get('design_capacity_m3_per_hour', 0) for d in drainage_recs_mapped),
+                                "total_length_m": sum(d['specifications'].get('length_estimated_m', 0) for d in drainage_recs_mapped),
+                                "recommendations_detail": drainage_recs_mapped
+                            },
+                            "summary": twi_summary,
+                            "interpretation": {
+                                "risk": "Area dengan risiko genangan tinggi" if twi_data.get('twi_enhanced', 0) >= 15 else "Area dengan drainase baik",
+                                "action": "Perlu mitigasi banjir dan RTH" if len(flood_zones_mapped) > 0 else "Monitoring rutin"
+                            }
+                        }
+                        print(f"✅ TWI analysis data loaded successfully ({len(flood_zones_mapped)} flood zones, {len(rtho_recs_mapped)} RTH recommendations, {len(drainage_recs_mapped)} drainage recommendations)")
+                except Exception as e:
+                    print(f"⚠️ Warning: Could not read TWI analysis file: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    summary["twi_analysis"] = {"status": "File exists but could not be read", "error": str(e)}
+            else:
+                print(f"ℹ️ Info: TWI analysis file not found (optional): {twi_file}")
+                summary["twi_analysis"] = {"status": "Not available for this job"}
+            
+            # 4. River Network Metadata JSON - 🌊 NEW!
+            river_map_file = os.path.join(job_dir, 'RIVANA_River_Network_Metadata.json')
+            if os.path.exists(river_map_file):
+                try:
+                    with open(river_map_file, 'r') as f:
+                        river_data = json.load(f)
+                        summary["river_network"] = {
+                            "location": river_data.get('location', {}),
+                            "flow_characteristics": river_data.get('flow_characteristics', {}),
+                            "water_occurrence": river_data.get('water_occurrence_stats', {}),
+                            "analysis_buffer_km": river_data.get('analysis_buffer_m', 0) / 1000,
+                            "map_files": river_data.get('output_files', {})
+                        }
+                        print(f"✅ River network data loaded successfully")
+                except Exception as e:
+                    print(f"⚠️ Warning: Could not read river network file: {e}")
+            else:
+                print(f"ℹ️ Info: River network file not found (optional): {river_map_file}")
+            
+            # 5. Extract data tambahan dari CSV untuk morfologi, ekologi, dll
             if os.path.exists(csv_file):
                 df = pd.read_csv(csv_file)
                 
@@ -763,20 +912,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "tren_30_hari": "Naik" if len(df) >= 30 and df['reservoir'].iloc[-1] > df['reservoir'].iloc[-30] else "Turun" if len(df) >= 30 else "Stable"
                     }
                 
-                # â­ Morfologi - TAMBAHKAN ke hasil_analisis (for view SECTION 4)
+                # Morfologi - TAMBAHKAN ke hasil_analisis (for view SECTION 4)
                 morph_cols = ['channel_width', 'slope', 'total_sedimentt']
                 if any(col in df.columns for col in morph_cols):
-                    # Safe slope formatting with better precision for small values
+                    # Safe slope formatting
                     slope_value = df['slope'].mean() if 'slope' in df.columns else None
-                    if slope_value is not None and slope_value > 0:
-                        if slope_value < 0.01:
-                            slope_str = f"{slope_value:.6f}° (Very Flat)"
-                        elif slope_value < 0.1:
-                            slope_str = f"{slope_value:.4f}°"
-                        else:
-                            slope_str = f"{slope_value:.2f}°"
-                    elif slope_value == 0:
-                        slope_str = "0° (Flat Area)"
+                    if slope_value is not None:
+                        slope_str = f"{slope_value:.2f}°"
                     else:
                         slope_str = "N/A"
                     
@@ -787,7 +929,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "erosion_rata_rata": f"{df['erosion_rate'].mean():.2f} mm/tahun" if 'erosion_rate' in df.columns else "N/A"
                     }
                     summary["morfologi"] = morfologi_data
-                    # â­ PENTING: Tambahkan juga ke hasil_analisis untuk view
+                    # PENTING: Tambahkan juga ke hasil_analisis untuk view
                     summary["analysis_results"]["morfologi"] = morfologi_data
                 
                 # Ekologi Detail
@@ -890,25 +1032,33 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             if os.path.exists(csv_file):
                 kondisi_sungai_soil_storage = {}
                 
-                # Morfologi Sungai
-                if all(col in df.columns for col in ['channel_width', 'slope', 'total_sedimentt']):
-                    kondisi_sungai_soil_storage["morfologi_sungai"] = {
-                        "lebar_sungai": {
+                # Morfologi Sungai (gunakan any karena tidak semua kolom selalu ada)
+                if 'channel_width' in df.columns or 'slope_degree' in df.columns or 'total_sedimentt' in df.columns:
+                    morfologi_sungai = {}
+                    
+                    if 'channel_width' in df.columns:
+                        morfologi_sungai["lebar_sungai"] = {
                             "rata_rata": f"{df['channel_width'].mean():.2f} m",
                             "min": f"{df['channel_width'].min():.2f} m",
                             "max": f"{df['channel_width'].max():.2f} m",
                             "status": "Normal" if 10 <= df['channel_width'].mean() <= 50 else "Perlu Monitoring"
-                        },
-                        "kemiringan": {
-                            "rata_rata": f"{df['slope'].mean():.4f}",
-                            "kategori": "Landai" if df['slope'].mean() < 0.001 else "Medium" if df['slope'].mean() < 0.01 else "Curam"
-                        },
-                        "beban_sediment": {
-                            "rata_rata": f"{df['total_sedimentt'].mean():.2f} kg/s",
-                            "total": f"{df['total_sedimentt'].sum():.2f} kg",
-                            "status": "Normal" if df['total_sedimentt'].mean() < 100 else "High - Perlu Drednging"
                         }
-                    }
+                    
+                    if 'slope_degree' in df.columns:
+                        morfologi_sungai["kemiringan"] = {
+                            "rata_rata": f"{df['slope_degree'].mean():.2f}°",
+                            "kategori": "Landai (<2°)" if df['slope_degree'].mean() < 2 else "Sedang (2-8°)" if df['slope_degree'].mean() < 8 else "Curam (>8°)"
+                        }
+                    
+                    if 'total_sedimentt' in df.columns:
+                        morfologi_sungai["beban_sediment"] = {
+                            "rata_rata": f"{df['total_sedimentt'].mean():.2f} ton/hari",
+                            "total": f"{df['total_sedimentt'].sum():.2f} ton",
+                            "status": "Normal" if df['total_sedimentt'].mean() < 100 else "Tinggi - Perlu Pengerukan"
+                        }
+                    
+                    if morfologi_sungai:  # Only add if there's data
+                        kondisi_sungai_soil_storage["morfologi_sungai"] = morfologi_sungai
                 
                 # Soil Condition
                 if all(col in df.columns for col in ['soil_moisture', 'infiltration', 'percolation']):
@@ -1177,43 +1327,50 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
     
     def get_file_display_order(self, filename):
         """Get display order priority untuk sorting files"""
-        # Priority order: HTML/Map files first, PNG, CSV, JSON, then others
+        # Priority order: HTML/Map files first, PNG (dashboard priority), CSV, JSON, then others
         if filename.endswith('.html'):
             # Interactive map - highest priority
-            if 'peta_aliran_sungai' in filename.lower() or 'interaktif' in filename.lower():
-                return 0
+            if 'Interactive_River_Map' in filename or 'River_Map' in filename:
+                return (0, 0, filename)
             else:
-                return 1
+                return (0, 1, filename)
         elif filename.endswith('.png'):
-            # River map PNG - high priority after HTML
-            if 'peta_aliran_sungai' in filename.lower():
-                return 2
-            # Dashboard files
-            elif 'Dashboard' in filename:
-                return 3
-            elif 'Summary' in filename:
-                return 4
-            else:
-                return 5
+            # PNG files - sort by importance
+            png_priority = {
+                'RIVANA_Dashboard.png': 1,
+                'RIVANA_Enhanced_Dashboard.png': 2,
+                'RIVANA_TWI_Dashboard.png': 3,
+                'RIVANA_Water_Balance_Dashboard.png': 4,
+                'RIVANA_Morphometry_Summary.png': 5,
+                'RIVANA_Morphology_Ecology_Dashboard.png': 6,
+                'RIVANA_Baseline_Comparison.png': 7,
+                'RIVANA_River_Network_Map.png': 8
+            }
+            return (1, png_priority.get(filename, 99), filename)
         elif filename.endswith('.csv'):
-            # Complete data first
-            if 'Complete' in filename:
-                return 10
-            elif 'Monthly' in filename:
-                return 11
-            else:
-                return 12
+            # CSV files
+            csv_priority = {
+                'RIVANA_Hasil_Complete.csv': 1,
+                'RIVANA_Monthly_WaterBalance.csv': 2,
+                'RIVANA_Prediksi_30Hari.csv': 3,
+                'GEE_Raw_Data.csv': 4,
+                'RIVANA_WaterBalance_Indices.csv': 5
+            }
+            return (2, csv_priority.get(filename, 99), filename)
         elif filename.endswith('.json'):
-            # River map metadata
-            if 'peta_aliran_sungai' in filename.lower():
-                return 19
-            # Validation file first
-            elif 'Validation' in filename:
-                return 20
-            else:
-                return 21
+            # JSON files
+            json_priority = {
+                'RIVANA_Model_Validation_Complete.json': 1,
+                'RIVANA_Baseline_Comparison.json': 2,
+                'RIVANA_TWI_Analysis.json': 3,
+                'RIVANA_WaterBalance_Validation.json': 4,
+                'RIVANA_Model_Validation_Report.json': 5,
+                'RIVANA_River_Network_Metadata.json': 6,
+                'GEE_Data_Metadata.json': 7
+            }
+            return (3, json_priority.get(filename, 99), filename)
         else:
-            return 99  # Other files last
+            return (99, 99, filename)  # Other files last
     
     def generate_recommendations(self, summary):
         """Generate rekomendasi berdasarkan hasil analisis"""

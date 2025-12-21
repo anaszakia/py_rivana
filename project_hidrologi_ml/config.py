@@ -130,8 +130,9 @@ class Config:
     
     def print_config(self):
         """Print current configuration (for debugging)"""
+        # Use ASCII-safe output for Windows compatibility
         print("\n" + "="*80)
-        print(f"🔧 CONFIGURATION - {self.environment.upper()} MODE")
+        print(f"[CONFIG] CONFIGURATION - {self.environment.upper()} MODE")
         print("="*80)
         print(f"Environment:     {self.environment}")
         print(f"Debug Mode:      {self.DEBUG}")

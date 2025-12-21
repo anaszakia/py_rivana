@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLOWCHART SISTEM RIVANA</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #2196F3;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #FF9800;
+            border-bottom: 3px solid #FF9800;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .mermaid {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 30px 0;
+            border: 2px solid #e0e0e0;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin: 10px 5px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.3s ease;
+        }
+        .download-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 5px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 FLOWCHART SISTEM RIVANA</h1>
+        <p class="subtitle">Water Evaluation And Planning with Machine Learning</p>
+        
+        <div class="button-container">
+            <button class="download-btn" onclick="downloadAllAsPNG()">📥 Download Semua Diagram (PNG)</button>
+            <button class="download-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>
+
+        <div class="info-box">
+            <strong>💡 Cara Download:</strong>
+            <ul>
+                <li><strong>Klik kanan pada diagram</strong> → Save Image As... (untuk satu diagram)</li>
+                <li><strong>Klik tombol hijau di atas</strong> untuk download semua sekaligus</li>
+                <li><strong>Print to PDF</strong> untuk menyimpan dalam format PDF</li>
+            </ul>
+        </div>
+
+        <h2>1. ALUR PROGRAM UTAMA</h2>
+        <div class="mermaid" id="diagram1">
+flowchart TB
+    Start([MULAI PROGRAM]) --> Menu{Pilih Cara Jalankan?}
+    
+    Menu -->|Otomatis/Perintah| ArgParse[Ambil Data dari Perintah:<br/>Longitude, Latitude,<br/>Tanggal Mulai & Akhir]
+    Menu -->|Manual| Interactive[Tampilkan Pilihan:<br/>1. Otomatis Default<br/>2. Input Sendiri<br/>3. Custom]
+    
+    ArgParse --> SetParams[Siapkan Data Awal]
+    Interactive --> InputParams[Terima Input dari User]
+    InputParams --> SetParams
+    
+    SetParams --> Main[Mulai Program Utama]
+    
+    Main --> Init[Hubungkan ke Google Earth Engine]
+    Init --> FetchGEE[Ambil Data Satelit:<br/>Curah Hujan, Suhu,<br/>Kehijauan Tanaman, Kelembaban Tanah]
+    
+    FetchGEE --> EstimateET[Hitung Penguapan Air<br/>Menggunakan ML]
+    EstimateET --> FetchMorph[Ambil Data Bentuk Bumi:<br/>Ketinggian, Kemiringan,<br/>Arah Aliran Air]
+    
+    FetchMorph --> SaveRaw[Simpan Data Mentah:<br/>File CSV & JSON]
+    
+    SaveRaw --> TrainLabel[Latih ML Pembuat Label<br/>Berdasarkan Hukum Fisika]
+    TrainLabel --> GenLabels[Buat Label Otomatis:<br/>Air Larian, Air Meresap,<br/>Rembesan, Aliran Dasar,<br/>Tampungan Air]
+    
+    GenLabels --> TrainModels[Latih 12 Model ML<br/>Untuk Berbagai Analisis]
+    
+    TrainModels --> Module1[1️⃣ ML Pergerakan Tanah<br/>Lumpur di Air<br/>Lumpur di Dasar<br/>Erosi]
+    TrainModels --> Module2[2️⃣ ML Simulasi Air<br/>Hujan jadi Aliran<br/>Resapan ke Tanah]
+    TrainModels --> Module3[3️⃣ ML Kebutuhan Air<br/>Pembagian Air<br/>Pemenuhan Kebutuhan]
+    TrainModels --> Module4[4️⃣ ML Prediksi Bencana<br/>Risiko Banjir & Kekeringan]
+    TrainModels --> Module5[5️⃣ ML Bendungan<br/>Saran Operasi Bendungan]
+    TrainModels --> Module6[6️⃣ ML Peramal<br/>Prediksi 30 Hari]
+    TrainModels --> Module7[7️⃣ ML Hak Air<br/>Prioritas Pembagian Air]
+    TrainModels --> Module8[8️⃣ ML Jaringan Pipa<br/>Distribusi Air]
+    TrainModels --> Module9[9️⃣ ML Ekonomi<br/>Analisis Biaya-Manfaat]
+    TrainModels --> Module10[🔟 ML Kualitas Air<br/>pH, Oksigen, Kebersihan]
+    TrainModels --> Module11[1️⃣1️⃣ ML Ekologi<br/>Habitat Ikan & Tanaman]
+    TrainModels --> Module12[1️⃣2️⃣ ML Sungai<br/>Perubahan Bentuk Sungai]
+    
+    Module1 --> Simulate
+    Module2 --> Simulate
+    Module3 --> Simulate
+    Module4 --> Simulate
+    Module5 --> Simulate
+    Module6 --> Simulate
+    Module7 --> Simulate
+    Module8 --> Simulate
+    Module9 --> Simulate
+    Module10 --> Simulate
+    Module11 --> Simulate
+    Module12 --> Simulate
+    
+    Simulate[Jalankan Simulasi Lengkap] --> Forecast[Buat Ramalan 30 Hari]
+    
+    Forecast --> Validate[Cek Akurasi Model<br/>Hitung Tingkat Kesalahan]
+    
+    Validate --> Baseline[Bandingkan dengan<br/>Metode Tradisional:<br/>Manual vs AI]
+    
+    Baseline --> WaterBalance[Cek Keseimbangan Air<br/>Air Masuk = Air Keluar?]
+    
+    WaterBalance --> Viz[Buat 8 Grafik<br/>Dashboard Visual]
+    
+    Viz --> SaveResults[Simpan Semua Hasil:<br/>CSV + JSON + Gambar]
+    
+    SaveResults --> Summary[Tampilkan Ringkasan<br/>Hasil Analisis]
+    
+    Summary --> End([SELESAI])
+    
+    style Start fill:#4CAF50,color:#fff
+    style End fill:#f44336,color:#fff
+    style Main fill:#2196F3,color:#fff
+    style TrainModels fill:#FF9800,color:#fff
+    style Validate fill:#9C27B0,color:#fff
+    style SaveResults fill:#00BCD4,color:#fff
+        </div>
+
+        <h2>2. DETAIL ALUR DATA PROCESSING</h2>
+        <div class="mermaid" id="diagram2">
+flowchart LR
+    subgraph Input["📥 DATA MASUK"]
+        GEE[Data Satelit<br/>Google Earth Engine]
+        Location[Titik Lokasi<br/>Longitude & Latitude]
+        DateRange[Periode Waktu<br/>Tanggal Mulai & Akhir]
+    end
+    
+    subgraph Processing["⚙️ PROSES DATA"]
+        direction TB
+        Raw[Bersihkan Data Mentah]
+        PhysicsLabel[Buat Label Awal<br/>Pakai Rumus Fisika]
+        MLLabel[Sempurnakan Label<br/>Pakai ML]
+        
+        Raw --> PhysicsLabel
+        PhysicsLabel --> MLLabel
+    end
+    
+    subgraph MLModels["🤖 12 MODEL ML"]
+        direction TB
+        Hydro[Model Hidrologi]
+        Sediment[Model Sedimen]
+        Supply[Model Kebutuhan]
+        Forecast[Model Peramalan]
+        Quality[Model Kualitas]
+        Ecology[Model Ekologi]
+        
+        Hydro -.-> Sediment
+        Hydro -.-> Supply
+        Hydro -.-> Forecast
+        Hydro -.-> Quality
+        Hydro -.-> Ecology
+    end
+    
+    subgraph Validation["✅ VALIDASI"]
+        direction TB
+        Metrics[Ukur Akurasi]
+        Baseline[Bandingkan Metode]
+        WB[Cek Keseimbangan Air]
+        
+        Metrics --> Baseline
+        Baseline --> WB
+    end
+    
+    subgraph Output["📤 HASIL AKHIR"]
+        direction TB
+        CSV[File Excel CSV<br/>Data Hasil Simulasi]
+        JSON[File JSON<br/>Data Teknis & Validasi]
+        PNG[File Gambar PNG<br/>Grafik & Dashboard]
+        
+        CSV ~~~ JSON
+        JSON ~~~ PNG
+    end
+    
+    Input --> Processing
+    Processing --> MLModels
+    MLModels --> Validation
+    Validation --> Output
+        </div>
+
+        <h2>3. ALUR PEMBUAT LABEL OTOMATIS</h2>
+        <div class="mermaid" id="diagram3">
+flowchart TB
+    Start([Mulai Buat Label]) --> CheckData[Periksa Data Masuk:<br/>Hujan, Penguapan,<br/>Suhu, Kehijauan]
+    
+    CheckData --> PhysicsInit[Buat Label Awal<br/>Pakai Rumus Fisika]
+    
+    PhysicsInit --> CurveNumber[Metode Curve Number<br/>→ Hitung Air Larian]
+    PhysicsInit --> GreenAmpt[Metode Green-Ampt<br/>→ Hitung Resapan]
+    PhysicsInit --> Percolation[Metode Kelembaban<br/>→ Hitung Rembesan]
+    PhysicsInit --> Baseflow[Metode Recession<br/>→ Hitung Aliran Dasar]
+    PhysicsInit --> Storage[Metode Kumulatif<br/>→ Bendungan, Tanah, Air Tanah]
+    
+    CurveNumber --> BuildModel
+    GreenAmpt --> BuildModel
+    Percolation --> BuildModel
+    Baseflow --> BuildModel
+    Storage --> BuildModel
+    
+    BuildModel[Bangun Jaringan ML<br/>Layer Dense + Dropout] --> Compile[Compile dengan<br/>Hukum Fisika]
+    
+    Compile --> Train[Latih Model ML<br/>100x Iterasi<br/>Auto Stop]
+    
+    Train --> Predict[Buat Label Otomatis<br/>Untuk Semua Data]
+    
+    Predict --> Return([Selesai - Label Siap])
+    
+    style Start fill:#4CAF50,color:#fff
+    style Return fill:#2196F3,color:#fff
+    style BuildModel fill:#FF9800,color:#fff
+        </div>
+
+        <h2>4. ALUR CEK KESEIMBANGAN AIR</h2>
+        <div class="mermaid" id="diagram4">
+flowchart TB
+    Start([Mulai Cek Air]) --> Define[Tentukan Rumus:<br/>Air Masuk = Air Keluar + Perubahan Tampungan]
+    
+    Define --> Input[Hitung Air Masuk:<br/>Total Hujan]
+    
+    Input --> Output[Hitung Air Keluar:<br/>Penguapan + Larian + Aliran Dasar]
+    
+    Output --> Storage[Hitung Perubahan Tampungan:<br/>Bendungan + Tanah + Air Tanah]
+    
+    Storage --> Residual[Hitung Selisih:<br/>Air Masuk - Air Keluar - Perubahan]
+    
+    Residual --> Error{Selisih < 5%?}
+    
+    Error -->|Ya| Valid[✅ Keseimbangan Air Valid]
+    Error -->|Tidak| Warning[⚠️ Perlu Perbaikan Model]
+    
+    Valid --> Monthly[Analisis Bulanan<br/>Cek Per Bulan]
+    Warning --> Monthly
+    
+    Monthly --> Indices[Hitung Indikator:<br/>Rasio Larian<br/>Rasio Penguapan<br/>Indeks Keseimbangan<br/>Indeks Kekeringan]
+    
+    Indices --> Report[Buat Laporan]
+    
+    Report --> End([Selesai])
+    
+    style Start fill:#4CAF50,color:#fff
+    style End fill:#2196F3,color:#fff
+    style Valid fill:#8BC34A,color:#fff
+    style Warning fill:#FF9800,color:#fff
+        </div>
+
+        <h2>5. ALUR 12 MODUL ML (MACHINE LEARNING)</h2>
+        <div class="mermaid" id="diagram5">
+flowchart TB
+    subgraph Core["MODUL INTI"]
+        LabelGen[Pembuat Label Otomatis<br/>Buat Label Hidrologi]
+        ETEst[Penghitung Penguapan<br/>Hitung Penguapan Air]
+        HydroSim[Simulator Air<br/>Hujan → Aliran]
+    end
+    
+    subgraph Physical["PROSES FISIK"]
+        Sediment[Pergerakan Sedimen<br/>Erosi & Pengendapan]
+        Channel[Morfologi Sungai<br/>Perubahan Bentuk]
+    end
+    
+    subgraph Management["PENGELOLAAN AIR"]
+        SupplyDemand[Kebutuhan Air<br/>Bagi Air Otomatis]
+        Reservoir[Saran Bendungan<br/>Operasi Optimal]
+        Network[Jaringan Distribusi<br/>Pembagian ke User]
+        Rights[Hak Air<br/>Sistem Prioritas]
+    end
+    
+    subgraph Risk["PENILAIAN RISIKO"]
+        FloodDrought[Prediksi Bencana<br/>Banjir & Kekeringan]
+        Forecaster[Peramalan<br/>Prediksi 30 Hari]
+    end
+    
+    subgraph Environment["LINGKUNGAN"]
+        Quality[Kualitas Air<br/>pH, Oksigen, Kebersihan]
+        Ecology[Ekologi Air<br/>Habitat Ikan & Tanaman]
+    end
+    
+    subgraph Economics["EKONOMI"]
+        CostBenefit[Analisis Biaya<br/>Untung Rugi]
+    end
+    
+    Core --> Physical
+    Core --> Management
+    Core --> Risk
+    Core --> Environment
+    Physical --> Environment
+    Management --> Economics
+    Risk --> Management
+    
+    style Core fill:#2196F3,color:#fff
+    style Physical fill:#FF9800,color:#fff
+    style Management fill:#4CAF50,color:#fff
+    style Risk fill:#f44336,color:#fff
+    style Environment fill:#00BCD4,color:#fff
+    style Economics fill:#9C27B0,color:#fff
+        </div>
+
+        <h2>6. ALUR VISUALISASI</h2>
+        <div class="mermaid" id="diagram6">
+flowchart LR
+    Results[Hasil Simulasi] --> Viz1[Dashboard 1<br/>Dashboard Utama<br/>Grafik Waktu]
+    Results --> Viz2[Dashboard 2<br/>Dashboard Lengkap<br/>Detail Metrik]
+    Results --> Viz3[Dashboard 3<br/>Keseimbangan Air<br/>Cek Konservasi]
+    Results --> Viz4[Dashboard 4<br/>Morfometri<br/>Analisis Sungai]
+    Results --> Viz5[Dashboard 5<br/>Morfologi-Ekologi<br/>Dampak Lingkungan]
+    Results --> Viz6[Dashboard 6<br/>Perbandingan Metode<br/>Performa Model]
+    Results --> Viz7[Dashboard 7<br/>Pasokan-Kebutuhan<br/>Analisis Pembagian]
+    Results --> Viz8[Dashboard 8<br/>Peta Sungai<br/>Analisis Spasial]
+    
+    Viz1 --> Save[Simpan Semua Gambar PNG]
+    Viz2 --> Save
+    Viz3 --> Save
+    Viz4 --> Save
+    Viz5 --> Save
+    Viz6 --> Save
+    Viz7 --> Save
+    Viz8 --> Save
+    
+    style Results fill:#4CAF50,color:#fff
+    style Save fill:#2196F3,color:#fff
+        </div>
+
+        <footer>
+            <h3>🌊 SISTEM RIVANA</h3>
+            <p><strong>Water Evaluation And Planning with Machine Learning</strong></p>
+            <p>Sistem manajemen air terpadu berbasis kecerdasan buatan</p>
+            <p style="margin-top: 20px; color: #999;">Generated on December 8, 2025</p>
+        </footer>
+        
+        <!-- DETAIL RUMUS & MODEL ML -->
+        <div style="margin-top: 50px; padding: 30px; background: #f8f9fa; border-radius: 10px;">
+            <h2 style="text-align: center; color: #2196F3;">📐 DETAIL RUMUS & MODEL ML PER SUBPROSES</h2>
+            
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🔬 1. ML PEMBUAT LABEL (MLLabelGenerator)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Neural Network (Dense + Dropout)</p>
+                    <p><strong>Input:</strong> 5 fitur (rainfall, ET, temperature, NDVI, soil_moisture)</p>
+                    <p><strong>Output:</strong> 7 label (runoff, infiltration, percolation, baseflow, reservoir, soil_storage, aquifer)</p>
+                    <p><strong>Arsitektur:</strong> Dense(64) → Dropout(0.3) → Dense(48) → Dropout(0.2) → Dense(32) → Dense(7)</p>
+                    <p><strong>Rumus Physics-Based:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Runoff (Curve Number Method):
+   S = (25400 / CN) - 254
+   Q = ((P - 0.2S)²) / (P + 0.8S)
+
+2. Infiltration (Green-Ampt):
+   f = min(P - Q, Ks/24)
+
+3. Percolation:
+   perc = infiltration × soil_moisture × 0.3
+
+4. Baseflow (Recession):
+   Q_base(t) = k × Q_base(t-1) + perc × 0.1
+
+5. Storage (Cumulative):
+   Reservoir = cumsum(runoff × 0.12)
+   Soil = cumsum(infiltration × 0.6 - ET × 0.4)
+   Aquifer = cumsum(percolation × 0.5 - baseflow)</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">💧 2. ML PENGHITUNG PENGUAPAN (MLETEstimator)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Random Forest Regressor (100 trees)</p>
+                    <p><strong>Input:</strong> 3 fitur (temperature, NDVI, soil_moisture)</p>
+                    <p><strong>Output:</strong> Evapotranspiration (mm/day)</p>
+                    <p><strong>Rumus Penman-Monteith:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px;">
+ET₀ = 0.0023 × (T_mean + 17.8) × √(T_max - T_min) × R_a
+ET_actual = ET₀ × Kc
+Kc = 0.5 + (NDVI × 0.8) × soil_moisture</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🏔️ 3. ML PERGERAKAN TANAH (MLSedimentTransport)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Neural Network</p>
+                    <p><strong>Input:</strong> 6 fitur (rainfall, runoff, ET, NDVI, soil_moisture, temperature)</p>
+                    <p><strong>Output:</strong> 4 target (suspended_sediment, bedload, erosion_rate, deposition_rate)</p>
+                    <p><strong>Rumus USLE:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px;">
+A = R × K × LS × C × P
+
+R = Rainfall erosivity
+K = Soil erodibility = 0.3
+LS = Slope factor = 1.5 × (sin(slope) / 0.0896)^0.6
+C = Cover factor = exp(-2 × NDVI)
+P = Practice factor = 1.0
+
+Sediment Transport:
+- Suspended = erosion × SDR × (stream_power/100)^0.5
+- Bedload = 8 × (shear_stress - critical)^1.5</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🌊 4. ML SIMULASI AIR (MLHydroSimulator)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> LSTM (Long Short-Term Memory)</p>
+                    <p><strong>Input Sequence:</strong> 14 hari × 7 fitur</p>
+                    <p><strong>Output:</strong> 7 komponen hidrologi</p>
+                    <p><strong>Physics-Informed Loss:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px;">
+Loss_total = MSE + λ × WB_penalty
+
+Water Balance:
+Input = Rainfall
+Output = ET + Runoff + Baseflow
+ΔStorage = ΔReservoir + ΔSoil + ΔAquifer
+
+WB_error = |Input - Output - ΔStorage|</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🚰 5. ML KEBUTUHAN AIR (MLSupplyDemand)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Multi-Output Neural Network</p>
+                    <p><strong>Input:</strong> 7 fitur (runoff, baseflow, reservoir, aquifer, demand_domestic, demand_agriculture, demand_industry)</p>
+                    <p><strong>Output:</strong> 7 target (supply_domestic, supply_agriculture, supply_industry, unmet_domestic, unmet_agriculture, unmet_industry, supply_ratio)</p>
+                    <p><strong>Arsitektur:</strong> Dense(32) → Dropout(0.2) → Dense(24) → Dropout(0.1) → Dense(7 outputs)</p>
+                    <p><strong>Proses Pembagian Air:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Hitung Total Air Tersedia:
+   Available = Runoff + Baseflow + Reservoir × 0.3 + Aquifer × 0.1
+
+2. Tentukan Prioritas Kebutuhan:
+   Priority: Domestik (100%) → Pertanian (80%) → Industri (60%)
+
+3. Alokasi Air Per Sektor:
+   Supply = min(Demand × Priority, Available)
+
+4. Hitung Kekurangan:
+   Unmet = Demand - Supply
+
+5. Supply Ratio (Efisiensi):
+   Ratio = Total_Supply / Total_Demand × 100%</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">⚠️ 6. ML PREDIKSI BENCANA (MLFloodDroughtPredictor)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Gradient Boosting Classifier</p>
+                    <p><strong>Input:</strong> 7 fitur hidrologi + 12 indikator risiko</p>
+                    <p><strong>Output:</strong> 4 klasifikasi (flood_risk, drought_risk, severity, warning_level)</p>
+                    <p><strong>Parameters:</strong> 100 estimators, max_depth=5, learning_rate=0.1</p>
+                    <p><strong>Indikator Risiko:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Flood Risk Index (FRI):
+   FRI = (Runoff_current / Runoff_mean) × (Rainfall_7day / Rainfall_mean)
+   
+   Klasifikasi:
+   - FRI < 1.5: Normal (0)
+   - 1.5 ≤ FRI < 2.5: Warning (1)
+   - 2.5 ≤ FRI < 4.0: Alert (2)
+   - FRI ≥ 4.0: Emergency (3)
+
+2. Drought Risk Index (DRI):
+   DRI = (ET_cumulative - Rainfall_cumulative) / Rainfall_mean
+   
+   Klasifikasi:
+   - DRI < 0.5: Normal (0)
+   - 0.5 ≤ DRI < 1.0: Moderate (1)
+   - 1.0 ≤ DRI < 2.0: Severe (2)
+   - DRI ≥ 2.0: Extreme (3)
+
+3. Severity Score:
+   Severity = max(FRI, DRI) × (1 + soil_deficit × 0.2)
+
+4. Warning Level:
+   0: Normal, 1: Advisory, 2: Watch, 3: Warning, 4: Emergency</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🏗️ 7. ML SARAN BENDUNGAN (MLReservoirAdvisor)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Neural Network dengan Constraint Layer</p>
+                    <p><strong>Input:</strong> 8 fitur (reservoir_level, inflow, demand, rainfall_forecast, flood_risk, drought_risk, season, day_of_year)</p>
+                    <p><strong>Output:</strong> 5 rekomendasi (release_rate, storage_target, spill_risk, safety_status, action)</p>
+                    <p><strong>Arsitektur:</strong> Dense(48) → Dense(32) → Dense(24) → Dense(5)</p>
+                    <p><strong>Aturan Operasi:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Zona Operasi Bendungan:
+   - Dead Storage: 0-20% kapasitas
+   - Conservation: 20-70% kapasitas
+   - Flood Control: 70-90% kapasitas
+   - Emergency: 90-100% kapasitas
+
+2. Release Rate (Laju Pelepasan):
+   if level < 30%:
+       release = min(inflow, demand × 0.8)  # Konservasi
+   elif 30% ≤ level < 70%:
+       release = demand  # Normal
+   elif 70% ≤ level < 90%:
+       release = max(demand, inflow × 0.8)  # Preventif
+   else:
+       release = max(inflow, spill_capacity)  # Darurat
+
+3. Storage Target (Target Tampungan):
+   Target = f(musim, curah_hujan_forecast, kebutuhan)
+   - Musim Hujan: 60-70% (siap banjir)
+   - Musim Kemarau: 80-90% (cadangan)
+
+4. Safety Status:
+   - Safe: level < 85%
+   - Caution: 85% ≤ level < 95%
+   - Critical: level ≥ 95%
+
+5. Recommended Action:
+   - Hold: Tahan air (kekeringan)
+   - Release: Lepas normal
+   - Emergency Release: Lepas maksimal (banjir)</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🔮 8. ML PERAMALAN (MLForecaster)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Sequence-to-Sequence LSTM (Encoder-Decoder)</p>
+                    <p><strong>Input:</strong> 30 hari historis × 7 fitur</p>
+                    <p><strong>Output:</strong> 30 hari prediksi × 7 fitur</p>
+                    <p><strong>Arsitektur:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+Encoder:
+  LSTM(64, return_sequences=True)
+  LSTM(48, return_state=True)
+
+Decoder:
+  RepeatVector(30)  # 30 hari ke depan
+  LSTM(48, return_sequences=True)
+  LSTM(64, return_sequences=True)
+  TimeDistributed(Dense(7))
+
+Proses Peramalan:
+1. Encoder: Baca pola 30 hari terakhir
+2. Decoder: Generate prediksi 30 hari ke depan
+3. Teacher Forcing: Latih dengan data real
+4. Inference: Prediksi autoregressive
+
+Confidence Interval:
+  CI_95% = prediction ± 1.96 × std_error</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">⚖️ 9. ML HAK AIR (MLWaterRights)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Multi-Task Neural Network</p>
+                    <p><strong>Input:</strong> 10 fitur (available_water, 3×demands, 3×priorities, season, legal_rights, historical_allocation)</p>
+                    <p><strong>Output:</strong> 6 target (3×allocations, 3×adjusted_priorities)</p>
+                    <p><strong>Arsitektur:</strong> Shared Dense(32) → 2 branches → Dense(3) each</p>
+                    <p><strong>Sistem Prioritas Dinamis:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Base Priority (Prioritas Dasar):
+   - Domestik: 100 (mutlak)
+   - Pertanian: 80 (musiman)
+   - Industri: 60 (fleksibel)
+
+2. Dynamic Adjustment (Penyesuaian):
+   Adjusted_Priority = Base × Scarcity_Factor × Legal_Factor
+   
+   Scarcity_Factor = 1 + (1 - Available/Normal) × 0.5
+   Legal_Factor = Historical_Rights / Max_Rights
+
+3. Allocation Algorithm:
+   Step 1: Allocate_by_priority(sorted_users)
+   Step 2: Check_if_demand_met()
+   Step 3: Redistribute_surplus()
+   
+4. Fairness Constraint:
+   Gini_Coefficient < 0.4 (Distribusi merata)
+   
+5. Output:
+   - Final_Allocation (m³/day)
+   - Priority_Score (0-100)
+   - Satisfaction_Ratio (%)</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🔗 10. ML JARINGAN DISTRIBUSI (MLSupplyNetwork)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Graph Neural Network (GNN)</p>
+                    <p><strong>Input:</strong> Network topology (nodes + edges) + flow data</p>
+                    <p><strong>Output:</strong> Optimal flow per edge + node pressure</p>
+                    <p><strong>Arsitektur:</strong> GraphConv(32) → GraphConv(24) → Dense(16) → Output</p>
+                    <p><strong>Optimasi Jaringan:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Network Graph:
+   Nodes: Source (waduk), Junction (simpang), Demand (user)
+   Edges: Pipes (pipa) dengan kapasitas & resistance
+
+2. Flow Optimization:
+   Minimize: Total_Energy_Loss + Pumping_Cost
+   
+   Subject to:
+   - Mass Conservation: Σ(flow_in) = Σ(flow_out) at each node
+   - Pressure Constraint: P_min ≤ P_node ≤ P_max
+   - Capacity Constraint: 0 ≤ Q_pipe ≤ Q_max
+
+3. Hazen-Williams Equation:
+   h_f = 10.67 × L × Q^1.852 / (C^1.852 × D^4.87)
+   
+   h_f = head loss (m)
+   L = pipe length (m)
+   Q = flow rate (m³/s)
+   C = roughness coefficient
+   D = diameter (m)
+
+4. Pressure Calculation:
+   P_node = P_source - Σ(h_f_upstream) - h_elevation
+
+5. Output:
+   - Optimal_Flow (L/s) per pipa
+   - Node_Pressure (bar)
+   - Pump_Schedule (on/off)
+   - Network_Efficiency (%)</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">💰 11. ML ANALISIS EKONOMI (MLCostBenefit)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> Dual Neural Network (Cost + Benefit branches)</p>
+                    <p><strong>Input:</strong> 8 fitur (infrastructure_cost, operation_cost, water_supply, crop_yield, industrial_output, recreation_value, ecosystem_value, time_horizon)</p>
+                    <p><strong>Output:</strong> 5 metrik (NPV, BCR, IRR, ROI, payback_period)</p>
+                    <p><strong>Arsitektur:</strong> Input → 2 branches (Dense(24) each) → Merge → Dense(16) → Dense(5)</p>
+                    <p><strong>Analisis Finansial:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. Net Present Value (NPV):
+   NPV = Σ[(Benefit_t - Cost_t) / (1 + r)^t]
+   
+   r = discount rate (8%)
+   t = tahun ke-t
+
+2. Benefit-Cost Ratio (BCR):
+   BCR = Σ[Benefit_t / (1+r)^t] / Σ[Cost_t / (1+r)^t]
+   
+   BCR > 1: Layak
+   BCR > 1.5: Sangat Layak
+
+3. Internal Rate of Return (IRR):
+   NPV = 0 when discount_rate = IRR
+   (Solved iteratively)
+
+4. Return on Investment (ROI):
+   ROI = (Total_Benefit - Total_Cost) / Total_Cost × 100%
+
+5. Payback Period:
+   Time when Cumulative_Benefit = Cumulative_Cost
+
+Benefits Include:
+- Water supply value (domestik, pertanian, industri)
+- Avoided flood damage
+- Hydropower generation
+- Recreation & tourism
+- Ecosystem services
+
+Costs Include:
+- Capital investment (konstruksi)
+- Operation & maintenance
+- Environmental mitigation
+- Social relocation</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #FF9800;">🧪 12. ML KUALITAS AIR (MLWaterQuality)</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <p><strong>Model:</strong> LSTM Multi-Output</p>
+                    <p><strong>Input Sequence:</strong> 7 hari × (7 fitur hidrologi + 5 parameter kualitas)</p>
+                    <p><strong>Output:</strong> 5 parameter (pH, DO, TDS, Turbidity, WQI)</p>
+                    <p><strong>Arsitektur:</strong> LSTM(32) → LSTM(24) → Dense(16) → Dense(5)</p>
+                    <p><strong>Parameter Kualitas Air:</strong></p>
+                    <pre style="background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto;">
+1. pH (Tingkat Keasaman):
+   Range: 6.5 - 8.5 (optimal untuk kehidupan)
+   Affected by: runoff, vegetation, rainfall
+
+2. DO - Dissolved Oxygen (Oksigen Terlarut):
+   DO (mg/L) = f(temperature, turbulence, vegetation)
+   DO_sat = 14.6 - 0.41 × Temperature(°C)
+   
+   Range: > 5 mg/L (baik)
+          < 2 mg/L (buruk)
+
+3. TDS - Total Dissolved Solids (Padatan Terlarut):
+   TDS = sediment + minerals + salts
+   Range: < 500 mg/L (excellent)
+          > 1000 mg/L (poor)
+
+4. Turbidity (Kekeruhan):
+   Turbidity (NTU) = f(sediment, runoff, erosion)
+   Range: < 5 NTU (clear)
+          > 50 NTU (very turbid)
+
+5. WQI - Water Quality Index (Indeks Kualitas):
+   WQI = Σ(w_i × q_i)
+   
+   w_i = weight parameter ke-i
+   q_i = quality score parameter ke-i
+   
+   Classification:
+   - WQI 90-100: Excellent
+   - WQI 70-90: Good
+   - WQI 50-70: Medium
+   - WQI 25-50: Bad
+   - WQI < 25: Very Bad
+
+Proses Prediksi:
+1. Monitoring 7 hari terakhir
+2. Identifikasi trend penurunan kualitas
+3. Prediksi kondisi hari berikutnya
+4. Early warning jika WQI < 50</pre>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-left: 5px solid #2196F3; border-radius: 5px;">
+                <h3 style="color: #2196F3; margin-top: 0;">📊 METRIK VALIDASI</h3>
+                <ul style="line-height: 1.8;">
+                    <li><strong>NSE (Nash-Sutcliffe Efficiency):</strong> ≥ 0.5 (Good: ≥ 0.75)</li>
+                    <li><strong>R² (Coefficient of Determination):</strong> ≥ 0.6 (Excellent: ≥ 0.85)</li>
+                    <li><strong>PBIAS (Percent Bias):</strong> < 10% (Good), < 25% (Acceptable)</li>
+                    <li><strong>RMSE (Root Mean Square Error):</strong> Lower is better</li>
+                    <li><strong>Water Balance Error:</strong> < 5% (Mass conservation check)</li>
+                </ul>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #fff3e0; border-left: 5px solid #FF9800; border-radius: 5px;">
+                <h3 style="color: #FF9800; margin-top: 0;">🔬 METODE BASELINE UNTUK PERBANDINGAN</h3>
+                <ol style="line-height: 1.8;">
+                    <li><strong>Rational Method:</strong> Q = C × I × A (Klasik)</li>
+                    <li><strong>Curve Number Method:</strong> NRCS-CN (Tradisional)</li>
+                    <li><strong>Simple Water Balance:</strong> P - ET = R + ΔS</li>
+                    <li><strong>Persistence Model:</strong> Forecast = Last_observed_value</li>
+                    <li><strong>Moving Average:</strong> Simple 7-day moving average</li>
+                </ol>
+                <p><strong>🎯 Tujuan:</strong> Membuktikan ML lebih akurat dari metode tradisional</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+
+        function downloadAllAsPNG() {
+            alert('💡 Cara Download:\n\n1. Klik kanan pada setiap diagram\n2. Pilih "Save Image As..." atau "Simpan Gambar Sebagai..."\n3. Pilih lokasi penyimpanan\n\nATAU\n\nTekan Ctrl+P → Save as PDF untuk menyimpan semua diagram sekaligus dalam format PDF!');
+        }
+    </script>
+</body>
+</html>
