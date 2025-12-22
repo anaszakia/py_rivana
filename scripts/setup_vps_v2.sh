@@ -75,6 +75,10 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
+# Clean domain - remove http:// or https:// if present
+DOMAIN=$(echo "$DOMAIN" | sed 's|https\?://||')
+echo -e "${GREEN}Domain cleaned: $DOMAIN${NC}"
+
 # Generate secure tokens
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 API_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
@@ -142,7 +146,7 @@ ENVIRONMENT=production
 
 # API Configuration
 API_HOST=0.0.0.0
-API_PORT=8001
+API_PORT=5000
 DEBUG=False
 
 # Paths
@@ -229,7 +233,7 @@ chown -R www-data:www-data /var/www/letsencrypt
 
 cat > /etc/nginx/sites-available/hidrologi-api <<EOF
 upstream hidrologi_api {
-    server 127.0.0.1:8001;
+    server 127.0.0.1:5000;
     keepalive 32;
 }
 
@@ -333,29 +337,40 @@ echo -e "${GREEN}✓ API service started${NC}"
 
 # Setup SSL Certificate
 print_section "13. Setting up SSL Certificate"
-echo -e "${YELLOW}Checking DNS configuration for $DOMAIN...${NC}"
-RESOLVED_IP=$(dig +short $DOMAIN | tail -1)
-CURRENT_IP=$(curl -s ifconfig.me)
+echo -e "${YELLOW}Note: SSL setup requires DNS to be configured first${NC}"
+echo -e "${YELLOW}Currently running on HTTP (port 80) - this is normal for initial setup${NC}"
+echo ""
+echo -e "${BLUE}To enable HTTPS later:${NC}"
+echo "1. Point your domain A record to this server IP"
+echo "2. Wait for DNS propagation (5-30 minutes)"
+echo "3. Run: sudo certbot --nginx -d $DOMAIN"
+echo "4. Certbot will automatically update Nginx config to HTTPS"
+echo ""
 
-echo "Domain resolves to: $RESOLVED_IP"
-echo "Server IP: $CURRENT_IP"
+RESOLVED_IP=$(dig +short $DOMAIN 2>/dev/null | tail -1)
+CURRENT_IP=$(curl -s ifconfig.me 2>/dev/null)
 
-if [ "$RESOLVED_IP" = "$CURRENT_IP" ]; then
-    echo -e "${GREEN}✓ DNS is configured correctly${NC}"
+if [ ! -z "$RESOLVED_IP" ] && [ "$RESOLVED_IP" = "$CURRENT_IP" ]; then
+    echo -e "${GREEN}✓ DNS is configured correctly!${NC}"
+    echo "Domain $DOMAIN resolves to: $RESOLVED_IP"
+    echo "Server IP: $CURRENT_IP"
     echo ""
     read -p "Install SSL certificate now? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN || {
+        certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN && {
+            echo -e "${GREEN}✓ SSL certificate installed and Nginx updated to HTTPS${NC}"
+        } || {
             echo -e "${RED}SSL setup failed. You can run it manually later with:${NC}"
             echo "sudo certbot --nginx -d $DOMAIN"
         }
     fi
 else
-    echo -e "${YELLOW}DNS not configured or propagating. Configure DNS first:${NC}"
-    echo "A Record: $DOMAIN -> $CURRENT_IP"
-    echo ""
-    echo "Then run: sudo certbot --nginx -d $DOMAIN"
+    echo -e "${YELLOW}DNS not configured yet or still propagating${NC}"
+    if [ ! -z "$CURRENT_IP" ]; then
+        echo "Server IP: $CURRENT_IP"
+        echo "Configure DNS A Record: $DOMAIN -> $CURRENT_IP"
+    fi
 fi
 
 # Final Summary
@@ -377,10 +392,14 @@ echo "   cd $APP_DIR"
 echo "   source venv/bin/activate"
 echo "   earthengine authenticate"
 echo ""
-echo "2. Test API (HTTP - before SSL):"
-echo "   curl http://localhost:8001/"
+echo "2. Test API locally:"
+echo "   curl http://localhost:8000/"
+echo "   curl http://localhost:8000/health"
 echo ""
-echo "3. After DNS & SSL setup, test HTTPS:"
+echo "3. Test API from outside (HTTP - before SSL):"
+echo "   curl http://$DOMAIN/"
+echo ""
+echo "4. After SSL setup, test HTTPS:"
 echo "   curl https://$DOMAIN/"
 echo ""
 echo "4. Monitor logs:"
