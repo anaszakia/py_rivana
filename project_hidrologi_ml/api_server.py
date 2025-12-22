@@ -616,8 +616,14 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             print(f"\n{'='*80}")
             print(f"🔍 DEBUG: Checking TWI Analysis JSON")
             print(f"{'='*80}")
+            print(f"Job directory: {job_dir}")
             print(f"Expected file path: {twi_file}")
             print(f"File exists: {os.path.exists(twi_file)}")
+            if os.path.exists(job_dir):
+                print(f"Job dir exists, listing files:")
+                for fname in os.listdir(job_dir):
+                    if 'TWI' in fname:
+                        print(f"  - {fname}")
             
             if os.path.exists(twi_file):
                 try:
@@ -745,18 +751,26 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "action": "Perlu mitigasi banjir dan RTH" if len(flood_zones_mapped) > 0 else "Monitoring rutin"
                         }
                     }
-                    print(f"✅ TWI analysis data loaded successfully")
+                    print(f"✅ TWI analysis data successfully added to summary")
+                    print(f"   - TWI Enhanced value: {twi_data.get('twi_enhanced', 0)}")
+                    print(f"   - Risk Level: {twi_data.get('risk_level', 'N/A')}")
                     print(f"   - Flood zones: {len(flood_zones_mapped)}")
                     print(f"   - RTH recommendations: {len(rtho_recs_mapped)}")
                     print(f"   - Drainage recommendations: {len(drainage_recs_mapped)}")
+                    print(f"   - summary['twi_analysis'] keys: {list(summary['twi_analysis'].keys())}")
                 except Exception as e:
-                    print(f"❌ Error reading TWI file: {e}")
+                    print(f"❌ CRITICAL ERROR reading TWI file: {e}")
+                    print(f"Error type: {type(e).__name__}")
                     import traceback
+                    print("Full traceback:")
                     traceback.print_exc()
                     summary["twi_analysis"] = {
-                        "status": "Error loading TWI analysis", 
+                        "status": "error", 
                         "error": str(e),
-                        "file_path": twi_file
+                        "error_type": type(e).__name__,
+                        "file_path": twi_file,
+                        "file_exists": os.path.exists(twi_file),
+                        "file_size": os.path.getsize(twi_file) if os.path.exists(twi_file) else 0
                     }
             else:
                 print(f"⚠️ TWI analysis file not found: {twi_file}")
@@ -1725,12 +1739,39 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     result_dir = get_job_result_path(job_id)
                     
+                    print(f"\n{'='*80}")
+                    print(f"ENDPOINT /summary/{job_id} - START")
+                    print(f"{'='*80}")
+                    print(f"Result directory: {result_dir}")
+                    
                     # Baca file CSV untuk generate summary (FIXED: Use correct RIVANA filenames)
                     csv_file = os.path.join(result_dir, 'RIVANA_Hasil_Complete.csv')
                     monthly_file = os.path.join(result_dir, 'RIVANA_Monthly_WaterBalance.csv')
                     validation_file = os.path.join(result_dir, 'RIVANA_WaterBalance_Validation.json')
                     
+                    print(f"CSV file: {csv_file} (exists: {os.path.exists(csv_file)})")
+                    print(f"Monthly file: {monthly_file} (exists: {os.path.exists(monthly_file)})")
+                    print(f"Validation file: {validation_file} (exists: {os.path.exists(validation_file)})")
+                    
                     summary_text = self.generate_summary_text(csv_file, monthly_file, validation_file, RESULTS[job_id])
+                    
+                    # Log TWI presence in summary
+                    has_twi = 'twi_analysis' in summary_text
+                    print(f"\n{'='*80}")
+                    print(f"ENDPOINT /summary/{job_id} - SUMMARY GENERATED")
+                    print(f"{'='*80}")
+                    print(f"Has TWI Analysis: {has_twi}")
+                    if has_twi:
+                        twi_keys = list(summary_text['twi_analysis'].keys()) if isinstance(summary_text.get('twi_analysis'), dict) else []
+                        print(f"TWI Analysis keys: {twi_keys}")
+                        if 'twi_enhanced' in summary_text.get('twi_analysis', {}):
+                            print(f"TWI Enhanced value: {summary_text['twi_analysis']['twi_enhanced']}")
+                        if 'status' in summary_text.get('twi_analysis', {}):
+                            print(f"⚠️ WARNING: TWI has 'status' key: {summary_text['twi_analysis']['status']}")
+                    else:
+                        print(f"❌ TWI Analysis NOT found in summary")
+                        print(f"Summary top-level keys: {list(summary_text.keys())}")
+                    print(f"{'='*80}\n")
                     
                     self._set_response()
                     self.wfile.write(json.dumps({
