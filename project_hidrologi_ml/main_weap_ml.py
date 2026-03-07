@@ -445,7 +445,7 @@ class MLLabelGenerator:
         """Generate labels menggunakan ML"""
         features = ['rainfall', 'evapotranspiration', 'temperature', 'ndvi', 'soil_moisture']
         X = self.scaler_X.transform(df[features].values)
-        y_pred = self.model.predict(X, verbose=0)
+        y_pred = self.model.predict(X)
         y_denorm = self.scaler_y.inverse_transform(y_pred)
 
         targets = ['runoff', 'infiltration', 'percolation', 'baseflow', 'reservoir', 'soil_storage', 'aquifer']
@@ -594,7 +594,7 @@ class MLSedimentTransport:
         features = ['rainfall', 'runoff', 'evapotranspiration', 'ndvi', 'soil_moisture', 'temperature']
         X = self.scaler_X.transform(df[features].values)
 
-        predictions = self.model.predict(X, verbose=0)
+        predictions = self.model.predict(X)
         y_denorm = self.scaler_y.inverse_transform(predictions)
 
         targets = ['suspended_sediment', 'bedload', 'erosion_rate', 'deposition_rate']
@@ -706,7 +706,7 @@ class MLETEstimator:
             evapotranspiration_pred = self.model.predict(X).flatten()
         else:
             # TensorFlow model
-            evapotranspiration_pred = self.model.predict(X, verbose=0).flatten()
+            evapotranspiration_pred = self.model.predict(X).flatten()
         
         return evapotranspiration_pred.clip(0, 10)
 
@@ -2953,7 +2953,7 @@ class MLHydroSimulator:
         
         # Predict pada test set
         print("\n🔍 Melakukan prediksi pada test set...")
-        y_test_pred = self.model.predict(X_test, verbose=0)
+        y_test_pred = self.model.predict(X_test)
         
         # Denormalize untuk validasi
         y_test_denorm = self.scaler_y.inverse_transform(y_test)
@@ -3040,7 +3040,7 @@ class MLHydroSimulator:
         results = []
         for i in range(config.look_back, len(X)):
             X_in = X[i-config.look_back:i].reshape(1, config.look_back, -1)
-            y_pred = self.model.predict(X_in, verbose=0)[0]
+            y_pred = self.model.predict(X_in)[0]
             y_denorm = self.scaler_y.inverse_transform(y_pred.reshape(1, -1))[0]
 
             results.append({
@@ -3122,7 +3122,7 @@ class MLSupplyDemand:
     def optimize(self, df_hasil):
         features = ['supply', 'reservoir', 'aquifer', 'rainfall', 'evapotranspiration']
         X = self.scaler.transform(df_hasil[features].values)
-        predictions = self.model.predict(X, verbose=0)
+        predictions = self.model.predict(X)
 
         sectors = list(config.demand.keys())
         for i, sector in enumerate(sectors):
@@ -3192,7 +3192,7 @@ class MLFloodDroughtPredictor:
         predictions = []
         for i in range(config.look_back, len(X)):
             X_in = X[i-config.look_back:i].reshape(1, config.look_back, -1)
-            pred = self.model.predict(X_in, verbose=0)[0]
+            pred = self.model.predict(X_in)[0]
             predictions.append(pred)
 
         pred_array = np.array(predictions)
@@ -3251,7 +3251,7 @@ class MLReservoirAdvisor:
     def recommend(self, df_hasil):
         features = ['reservoir', 'rainfall', 'reliability', 'total_demand']
         X = self.scaler.transform(df_hasil[features].values)
-        predictions = self.model.predict(X, verbose=0)
+        predictions = self.model.predict(X)
 
         actions = ['LEPAS AIR', 'PERTAHANKAN', 'SIMPAN AIR']
         df_hasil['rekomendasi'] = [actions[np.argmax(p)] for p in predictions]
@@ -3352,7 +3352,7 @@ class MLForecaster:
             X_last = self.scaler_X.transform(df_hasil[features].tail(config.look_back).values)
             X_in = X_last.reshape(1, config.look_back, -1)
 
-            y_pred = self.model.predict(X_in, verbose=0)[0]
+            y_pred = self.model.predict(X_in)[0]
             y_reshaped = y_pred.reshape(config.forecast_days, len(targets))
             y_denorm = self.scaler_y.inverse_transform(y_reshaped)
 
@@ -3461,7 +3461,7 @@ class MLWaterRights:
         """Alokasi air berdasarkan hak air dan prioritas dinamis"""
         features = ['supply', 'reservoir', 'reliability', 'total_demand']
         X = self.scaler.transform(df_hasil[features].values)
-        predictions = self.model.predict(X, verbose=0)
+        predictions = self.model.predict(X)
 
         sectors = list(self.water_rights.keys())
 
@@ -3541,7 +3541,7 @@ class MLSupplyNetwork:
         """Optimasi routing jaringan"""
         features = ['total_demand', 'rainfall', 'reservoir', 'aquifer']
         X = self.scaler.transform(df_hasil[features].values)
-        predictions = self.model.predict(X, verbose=0)
+        predictions = self.model.predict(X)
 
         sources = list(self.sources.keys())
 
@@ -3836,7 +3836,7 @@ class MLWaterQuality:
         predictions = []
         for i in range(config.look_back, len(X)):
             X_in = X[i-config.look_back:i].reshape(1, config.look_back, -1)
-            pred = self.model.predict(X_in, verbose=0)[0]
+            pred = self.model.predict(X_in)[0]
             predictions.append(pred)
 
         pred_array = np.array(predictions)
