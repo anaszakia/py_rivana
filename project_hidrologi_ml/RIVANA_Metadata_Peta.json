@@ -1,0 +1,29 @@
+{
+    "location": {
+        "latitude": -7.03,
+        "longitude": 110.42,
+        "das_name": "Sub-DAS kecil (Level 7, ID 5070009770)",
+        "das_area_km2": 12261.8
+    },
+    "flow_characteristics": {
+        "mean_accumulation": 402.33853222518377,
+        "max_accumulation": 160926.0,
+        "min_accumulation": 1.0,
+        "description": "Upstream area dari MERIT Hydro atau slope dari DEM"
+    },
+    "water_occurrence": {
+        "mean_percentage": 79.04859699831506,
+        "description": "Percentage of time area covered by water (0-100%)"
+    },
+    "files_created": {
+        "html_map": "RIVANA_Peta_Aliran_Sungai.html",
+        "png_map": "Not created",
+        "html_path_full": "./RIVANA_Peta_Aliran_Sungai.html",
+        "png_path_full": null
+    },
+    "data_sources": {
+        "flow_accumulation": "MERIT/Hydro/v1_0_1 (atau slope dari DEM)",
+        "water_occurrence": "JRC/GSW1_4/GlobalSurfaceWater",
+        "elevation": "USGS/SRTMGL1_003"
+    }
+}

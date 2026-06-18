@@ -85,6 +85,12 @@ sns.set_palette("Set2")
 import json
 import numpy as np
 
+from das_selector import select_das, save_das_info, DASResult
+
+from ml_cost_benefit_dam import MLCostBenefitDam
+
+from twi_analyzer_patch import MLTWIAnalyzerDAS
+
 # ==========================================
 # HELPER FUNCTIONS
 # ==========================================
@@ -987,42 +993,24 @@ def print_section(title, icon=""):
 # ==========================================
 # PENGAMBILAN DATA GEE
 # ==========================================
-def fetch_gee_data(lon, lat, start_date, end_date):
-    """Ambil data dari Google Earth Engine - OPTIMIZED BATCH VERSION"""
+def fetch_gee_data(das, start_date, end_date):
+    """
+    Ambil data dari Google Earth Engine - OPTIMIZED BATCH VERSION
+
+    Args:
+        das        : DASResult dari das_selector.select_das()
+        start_date : string YYYY-MM-DD
+        end_date   : string YYYY-MM-DD
+    """
     print_section("MENGAMBIL DATA SATELIT", "🛰️")
 
-    try:
-        # Try to initialize with service account first (for production/VPS)
-        service_account_key = os.path.join(os.path.dirname(__file__), 'gee-credentials.json')
-        
-        if os.path.exists(service_account_key):
-            print(f"🔐 Using service account authentication: {service_account_key}")
-            credentials = ee.ServiceAccountCredentials(
-                email=None,  # Will be read from JSON file
-                key_file=service_account_key
-            )
-            ee.Initialize(credentials=credentials, project='fabled-era-474402-g2')
-            print("✅ Terhubung ke Google Earth Engine (Service Account)")
-        else:
-            # Fallback to default authentication (for local development)
-            print("🔐 Using default authentication (no service account key found)")
-            ee.Initialize(project='fabled-era-474402-g2')
-            print("✅ Terhubung ke Google Earth Engine")
-    except Exception as init_error:
-        print(f"❌ Error initializing GEE: {str(init_error)}")
-        print("Trying to authenticate...")
-        try:
-            ee.Authenticate()
-            ee.Initialize(project='fabled-era-474402-g2')
-            print("✅ Terhubung ke Google Earth Engine (after authentication)")
-        except Exception as auth_error:
-            print(f"❌ Authentication failed: {str(auth_error)}")
-            raise Exception(f"Cannot initialize Google Earth Engine. Error: {str(auth_error)}")
+    # GEE sudah diinisialisasi di main() sebelum select_das dipanggil.
+    # Tidak perlu inisialisasi ulang di sini.
 
-    lokasi = ee.Geometry.Point([lon, lat])
-    buffer = lokasi.buffer(5000)
-    
-    print(f"\n📍 Lokasi: {lat:.4f}°N, {lon:.4f}°E")
+    buffer = das.geometry
+
+    print(f"\n🗺️  DAS    : {das.name}")
+    print(f"📐 Luas   : {das.area_km2:.1f} km²")
     print(f"📅 Periode: {start_date} hingga {end_date}")
     print(f"⚡ Using BATCH PROCESSING for optimal speed...")
 
@@ -1132,8 +1120,8 @@ def fetch_gee_data(lon, lat, start_date, end_date):
     df['soil_moisture'] = df['soil_moisture'].interpolate(method='linear', limit_direction='both')
     
     # Fill any remaining NaN with forward/backward fill
-    df.fillna(method='ffill', inplace=True)
-    df.fillna(method='bfill', inplace=True)
+    df.ffill(inplace=True)
+    df.bfill(inplace=True)
 
     # Hitung ET dengan ML (BARU - 100% ML)
     evapotranspiration_estimator = MLETEstimator()
@@ -1153,12 +1141,21 @@ def fetch_gee_data(lon, lat, start_date, end_date):
 # ==========================================
 # PENGAMBILAN DATA MORFOLOGI (DEM & LAND COVER)
 # ==========================================
-def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
-    """Ambil data morfologi dari GEE untuk analisis"""
+def fetch_morphology_data(das, start_date, end_date):
+    """
+    Ambil data morfologi dari GEE untuk analisis
+    
+    Args:
+        das        : DASResult dari das_selector.select_das()
+        start_date : string YYYY-MM-DD
+        end_date   : string YYYY-MM-DD
+    """
     print_section("MENGAMBIL DATA MORFOLOGI", "🏔️")
 
-    lokasi = ee.Geometry.Point([lon, lat])
-    buffer = lokasi.buffer(buffer_size)
+    # ✅ Gunakan geometry DAS langsung
+    buffer = das.geometry
+    print(f"\n🗺️  DAS  : {das.name}")
+    print(f"📐 Luas : {das.area_km2:.1f} km²")
 
     # DEM - SRTM 30m
     dem = ee.Image('USGS/SRTMGL1_003').clip(buffer)
@@ -1236,7 +1233,8 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
     twi_image = contributing_area.divide(tan_slope).log()
     
     # Calculate TWI statistics
-    twi_stats = twi_image.reduceRegion(
+    # ✅ PERBAIKAN: rename band 'twi' agar tidak bentrok dengan key 'elevation'
+    twi_stats = twi_image.rename('twi').reduceRegion(
         reducer=ee.Reducer.mean().combine(
             ee.Reducer.stdDev(), '', True
         ).combine(
@@ -1247,17 +1245,19 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
         maxPixels=1e9
     ).getInfo()
     
-    # Add TWI to morphology data
-    morphology_data['twi_mean'] = twi_stats.get('elevation_mean', 10.0)  # Default TWI
-    morphology_data['twi_std'] = twi_stats.get('elevation_stdDev', 2.0)
-    morphology_data['twi_min'] = twi_stats.get('elevation_min', 5.0)
-    morphology_data['twi_max'] = twi_stats.get('elevation_max', 18.0)
-    morphology_data['flow_accumulation_mean'] = float(flow_accumulation_proxy.reduceRegion(
-        reducer=ee.Reducer.mean(),
-        geometry=buffer,
-        scale=30,
-        maxPixels=1e9
-    ).getInfo().get('flow_direction', 500))
+    # Add TWI to morphology data — gunakan key 'twi_*' yang benar
+    morphology_data['twi_mean'] = twi_stats.get('twi_mean', 10.0)
+    morphology_data['twi_std']  = twi_stats.get('twi_stdDev', 2.0)
+    morphology_data['twi_min']  = twi_stats.get('twi_min', 5.0)
+    morphology_data['twi_max']  = twi_stats.get('twi_max', 18.0)
+    morphology_data['flow_accumulation_mean'] = float(
+        flow_accumulation_proxy.rename('flow_acc').reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=buffer,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo().get('flow_acc', 500)
+    )
 
     print(f"✅ Data morfologi successfully diambil")
     print(f"   📐 Relief: {morphology_data['relief']:.1f} m")
@@ -1270,15 +1270,14 @@ def fetch_morphology_data(lon, lat, start_date, end_date, buffer_size=10000):
 # ==========================================
 # RIVER NETWORK MAPPING (METODE 1: GEE + FOLIUM)
 # ==========================================
-def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
+def create_river_network_map(das, lon, lat, output_dir='.'):
     """
     Buat peta aliran sungai interaktif dari Google Earth Engine
     
     Args:
-        lon: Longitude koordinat analisis
-        lat: Latitude koordinat analisis
-        output_dir: Direktori output untuk saving peta
-        buffer_size: Ukuran buffer area analisis (meter), default 10km
+        das        : DASResult — batas DAS sudah ada, tidak perlu buffer lagi
+        lon, lat   : koordinat titik analisis (hanya untuk marker di peta)
+        output_dir : Direktori output untuk saving peta
     
     Returns:
         dict: Informasi peta yang dibuat
@@ -1287,13 +1286,15 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
     
     try:
         import io
+        import math
         from PIL import Image
         
         lokasi = ee.Geometry.Point([lon, lat])
-        buffer_zone = lokasi.buffer(buffer_size)
+        buffer_zone = das.geometry
         
-        print(f"\n📍 Lokasi Analisis: {lat:.4f}°N, {lon:.4f}°E")
-        print(f"📏 Area Buffer: {buffer_size/1000:.1f} km")
+        print(f"\n�️  DAS            : {das.name}")
+        print(f"📐 Luas DAS       : {das.area_km2:.1f} km²")
+        print(f"📍 Titik Analisis  : {lat:.4f}°N, {lon:.4f}°E")
         
         # ========== 1. AMBIL DATA HIDROLOGI DARI GEE ==========
         print("\n🔍 Mengambil data jaringan sungai dari Google Earth Engine...")
@@ -1340,10 +1341,29 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         # ========== 2. BUAT PETA INTERAKTIF DENGAN FOLIUM ==========
         print("\n🗺️ Membuat peta interaktif...")
         
-        # Inisialisasi peta dengan center di lokasi analisis
+        # Hitung centroid DAS untuk center peta
+        try:
+            centroid = das.geometry.centroid(maxError=100).getInfo()
+            center_lon = centroid['coordinates'][0]
+            center_lat = centroid['coordinates'][1]
+        except Exception:
+            center_lon, center_lat = lon, lat
+
+        # Hitung zoom level otomatis berdasarkan luas DAS
+        if das.area_km2 > 10000:
+            zoom = 7
+        elif das.area_km2 > 1000:
+            zoom = 9
+        elif das.area_km2 > 100:
+            zoom = 11
+        elif das.area_km2 > 10:
+            zoom = 12
+        else:
+            zoom = 13
+
         m = folium.Map(
-            location=[lat, lon],
-            zoom_start=12,
+            location=[center_lat, center_lon],
+            zoom_start=zoom,
             tiles='OpenStreetMap',
             control_scale=True
         )
@@ -1416,29 +1436,54 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         # ========== 4. TAMBAHKAN MARKER & INFORMASI ==========
         
         # Marker lokasi analisis
-        folium.Marker(
-            [lat, lon],
-            popup=folium.Popup(
-                f"<b>📍 Titik Analisis</b><br>"
-                f"Koordinat: {lat:.4f}°N, {lon:.4f}°E<br>"
-                f"Buffer: {buffer_size/1000:.1f} km",
-                max_width=300
-            ),
-            tooltip="Lokasi Analisis",
-            icon=folium.Icon(color='red', icon='map-pin', prefix='fa')
-        ).add_to(m)
+        # folium.Marker(
+        #     [lat, lon],
+        #     popup=folium.Popup(
+        #         f"<b>📍 Titik Analisis</b><br>"
+        #         f"Koordinat: {lat:.4f}°N, {lon:.4f}°E<br>"
+        #         f"DAS: {das.name}<br>"
+        #         f"Luas: {das.area_km2:.1f} km²",
+        #         max_width=300
+        #     ),
+        #     tooltip="Lokasi Analisis",
+        #     icon=folium.Icon(color='red', icon='map-pin', prefix='fa')
+        # ).add_to(m)
         
-        # Circle buffer area
-        folium.Circle(
-            location=[lat, lon],
-            radius=buffer_size,
-            color='red',
-            fill=True,
-            fillColor='red',
-            fillOpacity=0.1,
-            popup=f'Area Analisis ({buffer_size/1000:.1f} km radius)',
-            tooltip='Area Buffer Analisis'
-        ).add_to(m)
+        # ✅ Tampilkan polygon batas DAS (bukan lingkaran buffer lagi)
+        try:
+            geom_info = das.geometry.getInfo()
+            geom_type = geom_info['type']
+            geom_coords = geom_info['coordinates']
+
+            def swap_lonlat(coords):
+                """GEE pakai [lon,lat], folium pakai [lat,lon]"""
+                if isinstance(coords[0], (int, float)):
+                    return [coords[1], coords[0]]
+                return [swap_lonlat(c) for c in coords]
+
+            if geom_type == 'Polygon':
+                folium.Polygon(
+                    locations=swap_lonlat(geom_coords[0]),
+                    color='red', weight=2,
+                    fill=True, fillColor='red', fillOpacity=0.15,
+                    popup=folium.Popup(
+                        f"<b>🗺️ Batas DAS</b><br>"
+                        f"Nama : {das.name}<br>"
+                        f"Luas : {das.area_km2:.1f} km²",
+                        max_width=300
+                    ),
+                    tooltip=f"Batas DAS ({das.area_km2:.1f} km²)"
+                ).add_to(m)
+            elif geom_type == 'MultiPolygon':
+                for poly in geom_coords:
+                    folium.Polygon(
+                        locations=swap_lonlat(poly[0]),
+                        color='red', weight=2,
+                        fill=True, fillColor='red', fillOpacity=0.15,
+                        tooltip=f"Batas DAS ({das.area_km2:.1f} km²)"
+                    ).add_to(m)
+        except Exception as poly_err:
+            print(f"   ⚠️  Tidak bisa menampilkan polygon DAS: {poly_err}")
         
         # ========== 5. TAMBAHKAN LEGEND & CONTROLS ==========
         
@@ -1468,17 +1513,17 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         m.get_root().html.add_child(folium.Element(legend_html))
         
         # Add title
-        title_html = '''
+        title_html = f'''
         <div style="position: fixed; 
                     top: 10px; left: 50%; transform: translateX(-50%);
                     z-index:9999; background-color: rgba(255,255,255,0.9);
                     border:2px solid #0066cc; border-radius: 8px;
                     padding: 10px 20px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3);">
             <h3 style="margin:0; color:#0066cc; text-align:center;">
-                🗺️ PETA JARINGAN ALIRAN SUNGAI
+                🗺️ PETA DAS: {das.name}
             </h3>
             <p style="margin:5px 0; text-align:center; font-size:12px;">
-                Koordinat: {:.4f}°N, {:.4f}°E
+                Luas: {das.area_km2:.1f} km² | Centroid: {center_lat:.4f}°N, {center_lon:.4f}°E
             </p>
         </div>
         '''.format(lat, lon)
@@ -1545,7 +1590,8 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     print("   🔍 Mengambil data raster untuk visualisasi...")
                     
                     # Calculate bounds untuk area yang akan divisualisasi
-                    buffer_deg = buffer_size / 111000  # Convert meter ke derajat (approx)
+                    buffer_radius_km = math.sqrt(max(das.area_km2, 0.1) / math.pi)
+                    buffer_deg = buffer_radius_km * 1000 / 111000  # Convert meter ke derajat (approx)
                     bounds = {
                         'west': lon - buffer_deg,
                         'east': lon + buffer_deg,
@@ -1651,7 +1697,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                     # Plot buffer circle
                     circle = plt.Circle((lon, lat), buffer_deg, color='red', 
                                        fill=False, linewidth=2, linestyle='--', 
-                                       alpha=0.5, zorder=4, label=f'Buffer {buffer_size/1000:.1f} km')
+                                       alpha=0.5, zorder=4, label=f'Approx DAS radius {buffer_radius_km:.1f} km')
                     ax.add_patch(circle)
                     
                     # Styling
@@ -1739,7 +1785,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
                                ha='center', va='top', fontsize=16, color='#333333')
                         
                         # Buffer
-                        ax.text(5, 7.3, f'🔍 Area Buffer: {buffer_size/1000:.1f} km radius', 
+                        ax.text(5, 7.3, f'🔍 Approx DAS radius: {buffer_radius_km:.1f} km', 
                                ha='center', va='top', fontsize=14, color='#666666')
                         
                         # Notice
@@ -1813,9 +1859,10 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         
         river_info = {
             'location': {
-                'latitude': float(lat),
-                'longitude': float(lon),
-                'buffer_radius_km': float(buffer_size / 1000)
+                'latitude':   float(lat),
+                'longitude':  float(lon),
+                'das_name':   das.name,
+                'das_area_km2': float(das.area_km2)
             },
             'flow_characteristics': {
                 'mean_accumulation': float(flow_stats.get(f'{flow_band}_mean', 0)),
@@ -1849,7 +1896,7 @@ def create_river_network_map(lon, lat, output_dir='.', buffer_size=10000):
         print(f"{'='*80}")
         print(f"\n📍 Lokasi:")
         print(f"   Koordinat: {lat:.4f}°N, {lon:.4f}°E")
-        print(f"   Area Analisis: {buffer_size/1000:.1f} km radius")
+        print(f"   DAS: {das.name} | Luas: {das.area_km2:.1f} km²")
         print(f"\n🌊 Akumulasi Aliran:")
         print(f"   Rata-rata: {river_info['flow_characteristics']['mean_accumulation']:.0f} cells")
         print(f"   Maksimum: {river_info['flow_characteristics']['max_accumulation']:.0f} cells")
@@ -3556,129 +3603,10 @@ class MLSupplyNetwork:
 # ==========================================
 # ML MODEL 8: COST-BENEFIT & ENERGY (ML-BASED)
 # ==========================================
-class MLCostBenefit:
-    """ML untuk analisis biaya-manfaat dan energi (100% ML)"""
-
-    def __init__(self):
-        self.scaler = MinMaxScaler()
-        self.cost_model = None
-        self.benefit_model = None
-
-        # Base parameters (akan dipelajari ML)
-        self.base_costs = {
-            'treatment': 0.05,
-            'distribution': 0.03,
-            'pumping_energy': 0.08,
-            'maintenance': 0.02
-        }
-
-        self.base_benefits = {
-            'Domestic': 1.5,
-            'Agriculture': 0.8,
-            'Industry': 2.0,
-            'Environmental': 1.0
-        }
-
-    def build_cost_model(self, n_features):
-        """ML model untuk dynamic cost calculation"""
-        model = Sequential([
-            Dense(32, activation='relu', input_shape=(n_features,)),
-            Dropout(0.2),
-            Dense(16, activation='relu'),
-            Dense(4)  # [treatment, distribution, pumping, maintenance] costs
-        ])
-        model.compile(optimizer=Adam(0.001), loss='mse')
-        return model
-
-    def build_benefit_model(self, n_features):
-        """ML model untuk dynamic benefit valuation"""
-        model = Sequential([
-            Dense(32, activation='relu', input_shape=(n_features,)),
-            Dropout(0.2),
-            Dense(16, activation='relu'),
-            Dense(4)  # Benefits per sector
-        ])
-        model.compile(optimizer=Adam(0.001), loss='mse')
-        return model
-
-    def train(self, df_hasil):
-        print_section("TRAINING COST-BENEFIT ANALYZER", "💰")
-
-        features = ['total_supply', 'reservoir', 'total_demand', 'reliability', 'rainfall']
-        sectors = list(self.base_benefits.keys())
-
-        # Generate training data dengan variasi
-        cost_targets = []
-        benefit_targets = []
-
-        for _, row in df_hasil.iterrows():
-            supply = row['total_supply']
-            reliability = row['reliability']
-            RETENSI_level = row['reservoir'] / config.capacity_reservoir
-
-            # Dynamic costs (meningkat saat supply low atau reliability low)
-            stress_factor = 1 + (1 - reliability) * 0.5
-            depth_factor = 1 + (1 - RETENSI_level) * 0.3
-
-            costs = [
-                self.base_costs['treatment'] * supply * stress_factor,
-                self.base_costs['distribution'] * supply * (1 + np.random.randn() * 0.1),
-                self.base_costs['pumping_energy'] * supply * depth_factor,
-                self.base_costs['maintenance'] * supply * stress_factor
-            ]
-            cost_targets.append(costs)
-
-            # Dynamic benefits (menurun saat defisit)
-            benefits = []
-            for sector in sectors:
-                base_benefit = self.base_benefits[sector]
-                allocation_ratio = row[f'supply_{sector}'] / config.demand[sector] if config.demand[sector] > 0 else 1
-                benefit = base_benefit * row[f'supply_{sector}'] * allocation_ratio
-                benefits.append(benefit)
-            benefit_targets.append(benefits)
-
-        X = self.scaler.fit_transform(df_hasil[features].values)
-        y_cost = np.array(cost_targets)
-        y_benefit = np.array(benefit_targets)
-
-        # Train cost model
-        self.cost_model = self.build_cost_model(len(features))
-        self.cost_model.fit(X, y_cost, epochs=50, batch_size=16, verbose=0)
-
-        # Train benefit model
-        self.benefit_model = self.build_benefit_model(len(features))
-        self.benefit_model.fit(X, y_benefit, epochs=50, batch_size=16, verbose=0)
-
-        print("✅ Cost-Benefit Analyzer Terlatih (ML-based)")
-        return df_hasil
-
-    def analyze(self, df_hasil):
-        """Analisis ekonomi dan energi dengan ML"""
-        features = ['total_supply', 'reservoir', 'total_demand', 'reliability', 'rainfall']
-        X = self.scaler.transform(df_hasil[features].values)
-
-        # Predict costs dan benefits
-        cost_predictions = self.cost_model.predict(X, verbose=0)
-        benefit_predictions = self.benefit_model.predict(X, verbose=0)
-
-        # Calculate totals
-        df_hasil['total_cost'] = cost_predictions.sum(axis=1)
-        df_hasil['total_benefit'] = benefit_predictions.sum(axis=1)
-        df_hasil['net_benefit'] = df_hasil['total_benefit'] - df_hasil['total_cost']
-
-        # Energy calculation (physics-based tapi adjusted by ML)
-        base_energy = df_hasil['total_supply'] * 0.05
-        depth_factor = (100 - df_hasil['reservoir']) / 100
-        df_hasil['energy_kwh'] = base_energy * (1 + depth_factor) * cost_predictions[:, 2] / self.base_costs['pumping_energy']
-
-        # Efficiency ratio
-        df_hasil['efficiency_ratio'] = np.where(
-            df_hasil['total_cost'] > 0,
-            df_hasil['total_benefit'] / df_hasil['total_cost'],
-            0
-        )
-
-        return df_hasil
+# MLCostBenefit digantikan MLCostBenefitDam
+# (menggunakan data LPSE PUPR nyata 2025-2026)
+# Import sudah ada di atas: from ml_cost_benefit_dam import MLCostBenefitDam
+MLCostBenefit = MLCostBenefitDam  # alias agar kode lain tidak perlu diubah
 
 
 # ==========================================
@@ -6632,7 +6560,8 @@ def create_twi_dashboard(twi_data, rtho_recs, flood_zones, drainage_recs, morpho
 # ==========================================
 # MAIN PROGRAM (FIXED)
 # ==========================================
-def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
+def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en',
+        shapefile_path=None, auto_level=None):
     """
     Main program execution
     
@@ -6643,6 +6572,8 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
         end (str): Date akhir (format YYYY-MM-DD)
         output_dir (str, optional): Direktori untuk saving output. Default None.
         lang (str, optional): Language for visualizations ('en' or 'id'). Default 'en'.
+        shapefile_path (str, optional): Path ke shapefile/GeoJSON DAS sendiri.
+        auto_level (int, optional): Level HydroSHEDS otomatis, 3-8.
     """
     import os
     
@@ -6720,9 +6651,44 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
     # Pipeline ML (TETAP SAMA, JANGAN DIUBAH)
     print_section("MEMULAI ANALISIS ML", "🚀")
 
+    # ── 2. INISIALISASI GEE (dipindah ke sini agar bisa dipakai select_das) ──
+    try:
+        service_account_key = os.path.join(os.path.dirname(__file__), 'gee-credentials.json')
+        if os.path.exists(service_account_key):
+            credentials = ee.ServiceAccountCredentials(email=None, key_file=service_account_key)
+            ee.Initialize(credentials=credentials, project='fabled-era-474402-g2')
+            print("✅ GEE connected (Service Account)")
+        else:
+            ee.Initialize(project='fabled-era-474402-g2')
+            print("✅ GEE connected (default auth)")
+    except Exception:
+        try:
+            ee.Authenticate()
+            ee.Initialize(project='fabled-era-474402-g2')
+            print("✅ GEE connected (after authentication)")
+        except Exception as auth_err:
+            raise RuntimeError(f"❌ GEE tidak bisa diinisialisasi: {auth_err}")
+
+    save_dir = output_dir if output_dir else '.'
+    os.makedirs(save_dir, exist_ok=True)
+
+    # ── 4. PILIH DAS ──────────────────────────────────────
+    print_section("PEMILIHAN WILAYAH DAS", "🗺️")
+
+    das = select_das(
+        lon, lat,
+        shapefile_path=shapefile_path,
+        auto_level=auto_level
+    )
+    save_das_info(das, save_dir)
+
+    print(f"\n✅ DAS terpilih : {das.name}")
+    print(f"   Luas         : {das.area_km2:.1f} km²")
+    print(f"   Sumber       : {das.source}")
+
     # 1. Fetch Data
-    df = fetch_gee_data(lon, lat, start, end)
-    morphology_data = fetch_morphology_data(lon, lat, start, end)
+    df = fetch_gee_data(das, start, end)
+    morphology_data = fetch_morphology_data(das, start, end)
     
     # ==========================================
     # TWI ENHANCED CALCULATION (BARU!)
@@ -6752,22 +6718,22 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
         print(f"   ⭐ Enhanced TWI: {twi_data['twi_enhanced']:.2f}")
         print(f"   🎯 Risk Level: {twi_data['risk_level']}")
         
-        # TWI Analysis for RTH and Flood Zones
-        twi_analyzer = MLTWIAnalyzer(twi_model)
-        
-        # Identify flood-prone zones
+        # TWI Analysis for RTH and Flood Zones — DAS-aware version
+        twi_analyzer = MLTWIAnalyzerDAS(das, twi_model)
+
+        # Identify flood-prone zones (koordinat di dalam polygon DAS)
         flood_zones = twi_analyzer.identify_flood_zones(
-            twi_data['twi_enhanced'], lon, lat
+            twi_data['twi_enhanced']
         )
-        
-        # Recommend RTH locations
+
+        # Recommend RTH locations (koordinat di dalam polygon DAS)
         rtho_recommendations = twi_analyzer.recommend_rtho_locations(
-            twi_data['twi_enhanced'], morphology_data, df, lon, lat
+            twi_data['twi_enhanced'], morphology_data, df
         )
-        
-        # Recommend Drainage locations
+
+        # Recommend Drainage locations (koordinat di dalam polygon DAS)
         drainage_recommendations = twi_analyzer.recommend_drainage_locations(
-            twi_data['twi_enhanced'], flood_zones, morphology_data, df, lon, lat
+            twi_data['twi_enhanced'], morphology_data, df
         )
         
         # Generate summary
@@ -6804,7 +6770,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
         traceback.print_exc()
     
     # ⭐ BUAT PETA ALIRAN SUNGAI (FITUR BARU)
-    river_map_info = create_river_network_map(lon, lat, output_dir=output_dir if output_dir else '.', buffer_size=10000)
+    river_map_info = create_river_network_map(das, lon, lat, output_dir=save_dir)
     
     # ⭐ SAVE RAW GEE DATA TO CSV WITH METADATA
     print_section("MENYIMPAN DATA MENTAH GEE", "💾")
@@ -6906,7 +6872,8 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
     df_hasil = ml_network.train(df_hasil)
     df_hasil = ml_network.optimize_network(df_hasil)
 
-    ml_cost = MLCostBenefit()
+    ml_cost = MLCostBenefitDam(das, morphology_data)
+    ml_cost.jalankan(output_dir=save_dir)
     df_hasil = ml_cost.train(df_hasil)
     df_hasil = ml_cost.analyze(df_hasil)
 
@@ -7233,6 +7200,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en'):
         'RIVANA_Monthly_WaterBalance.csv',
         'RIVANA_Prediksi_30Hari.csv',
         'GEE_Raw_Data.csv',
+        'RIVANA_Dam_Cost_Estimate.json',
         'RIVANA_WaterBalance_Validation.json',
         'RIVANA_Model_Validation_Complete.json',
         'RIVANA_Baseline_Comparison.json',

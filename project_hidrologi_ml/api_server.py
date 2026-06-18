@@ -193,7 +193,10 @@ def load_existing_jobs():
         json_files = [f for f in os.listdir(job_dir) if f.endswith('.json') and f != 'params.json']
         html_files = [f for f in os.listdir(job_dir) if f.endswith('.html')]
 
-        has_river_map = any('River_Map' in f or 'River_Network' in f for f in png_files + html_files + json_files)
+        has_river_map = any(
+            ('River_Map' in f or 'River_Network' in f or 'Peta_Aliran_Sungai' in f)
+            for f in png_files + html_files + json_files
+        )
         has_twi = any('TWI' in f for f in png_files + json_files)
 
         if len(png_files) > 0 or len(csv_files) > 0:
@@ -222,9 +225,18 @@ def load_existing_jobs():
             },
             "river_map": {
                 "available": has_river_map,
-                "interactive_html": any('RIVANA_Interactive_River_Map.html' in f for f in html_files),
-                "static_png": any('RIVANA_River_Network_Map.png' in f for f in png_files),
-                "metadata_json": any('RIVANA_River_Network_Metadata.json' in f for f in json_files)
+                "interactive_html": any(
+                    name in f for f in html_files
+                    for name in ['RIVANA_Peta_Aliran_Sungai.html', 'RIVANA_Interactive_River_Map.html']
+                ),
+                "static_png": any(
+                    name in f for f in png_files
+                    for name in ['RIVANA_Peta_Aliran_Sungai.png', 'RIVANA_River_Network_Map.png']
+                ),
+                "metadata_json": any(
+                    name in f for f in json_files
+                    for name in ['RIVANA_Metadata_Peta.json', 'RIVANA_River_Network_Metadata.json']
+                )
             },
             "twi_analysis": {
                 "available": has_twi,
@@ -768,23 +780,30 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             print(f"{'='*80}\n")
 
             # 4. River Network Metadata JSON
-            river_map_file = os.path.join(job_dir, 'RIVANA_River_Network_Metadata.json')
-            if os.path.exists(river_map_file):
+            river_metadata_files = [
+                os.path.join(job_dir, 'RIVANA_Metadata_Peta.json'),
+                os.path.join(job_dir, 'RIVANA_River_Network_Metadata.json')
+            ]
+            river_map_file = next(
+                (f for f in river_metadata_files if os.path.exists(f) and os.path.getsize(f) > 0),
+                None
+            )
+            if river_map_file:
                 try:
                     with open(river_map_file, 'r') as f:
                         river_data = json.load(f)
                         summary["river_network"] = {
                             "location": river_data.get('location', {}),
                             "flow_characteristics": river_data.get('flow_characteristics', {}),
-                            "water_occurrence": river_data.get('water_occurrence_stats', {}),
+                            "water_occurrence": river_data.get('water_occurrence', {}),
                             "analysis_buffer_km": river_data.get('analysis_buffer_m', 0) / 1000,
-                            "map_files": river_data.get('output_files', {})
+                            "map_files": river_data.get('files_created', {})
                         }
-                        print(f"✅ River network data loaded successfully")
+                        print(f"✅ River network data loaded successfully from {os.path.basename(river_map_file)}")
                 except Exception as e:
                     print(f"⚠️ Warning: Could not read river network file: {e}")
             else:
-                print(f"ℹ️ Info: River network file not found (optional): {river_map_file}")
+                print(f"ℹ️ Info: River network file not found (optional): {river_metadata_files}")
 
             # 5. Additional data extraction from CSV
             if os.path.exists(csv_file):
@@ -1336,7 +1355,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
     def get_file_display_order(self, filename):
         """Get display order priority for sorting files"""
         if filename.endswith('.html'):
-            if 'Interactive_River_Map' in filename or 'River_Map' in filename:
+            if ('Interactive_River_Map' in filename or 'River_Map' in filename or 'Peta_Aliran_Sungai' in filename):
                 return (0, 0, filename)
             else:
                 return (0, 1, filename)
@@ -1349,7 +1368,8 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 'RIVANA_Morphometry_Summary.png': 5,
                 'RIVANA_Morphology_Ecology_Dashboard.png': 6,
                 'RIVANA_Baseline_Comparison.png': 7,
-                'RIVANA_River_Network_Map.png': 8
+                'RIVANA_River_Network_Map.png': 8,
+                'RIVANA_Peta_Aliran_Sungai.png': 8
             }
             return (1, png_priority.get(filename, 99), filename)
         elif filename.endswith('.csv'):
@@ -1604,6 +1624,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                 png_files = []
                 csv_files = []
                 json_files = []
+                html_files = []
                 other_files = []
 
                 if os.path.exists(result_dir):
@@ -1804,49 +1825,67 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     "metadata": None
                 }
 
-                html_map = os.path.join(result_dir, 'RIVANA_Interactive_River_Map.html')
-                if os.path.exists(html_map) and os.path.getsize(html_map) > 0:
-                    river_map_data["available"] = True
-                    river_map_data["files"]["interactive_html"] = {
-                        "name": "RIVANA_Interactive_River_Map.html",
-                        "type": "html",
-                        "size": os.path.getsize(html_map),
-                        "size_kb": round(os.path.getsize(html_map) / 1024, 2),
-                        "download_url": f"/download/{job_id}/RIVANA_Interactive_River_Map.html",
-                        "preview_url": f"/preview/{job_id}/RIVANA_Interactive_River_Map.html",
-                        "description": "Interactive map with zoom, layers, and markers"
-                    }
-
-                png_map = os.path.join(result_dir, 'RIVANA_River_Network_Map.png')
-                if os.path.exists(png_map) and os.path.getsize(png_map) > 0:
-                    river_map_data["available"] = True
-                    river_map_data["files"]["static_png"] = {
-                        "name": "RIVANA_River_Network_Map.png",
-                        "type": "png",
-                        "size": os.path.getsize(png_map),
-                        "size_kb": round(os.path.getsize(png_map) / 1024, 2),
-                        "download_url": f"/download/{job_id}/RIVANA_River_Network_Map.png",
-                        "preview_url": f"/preview/{job_id}/RIVANA_River_Network_Map.png",
-                        "description": "Static map for presentations and reports"
-                    }
-
-                metadata_file = os.path.join(result_dir, 'RIVANA_River_Network_Metadata.json')
-                if os.path.exists(metadata_file) and os.path.getsize(metadata_file) > 0:
-                    try:
-                        with open(metadata_file, 'r', encoding='utf-8') as f:
-                            river_map_data["metadata"] = json.load(f)
-
-                        river_map_data["files"]["metadata_json"] = {
-                            "name": "RIVANA_River_Network_Metadata.json",
-                            "type": "json",
-                            "size": os.path.getsize(metadata_file),
-                            "size_kb": round(os.path.getsize(metadata_file) / 1024, 2),
-                            "download_url": f"/download/{job_id}/RIVANA_River_Network_Metadata.json",
-                            "preview_url": f"/preview/{job_id}/RIVANA_River_Network_Metadata.json",
-                            "description": "River characteristics and statistics"
+                html_candidates = [
+                    'RIVANA_Peta_Aliran_Sungai.html',
+                    'RIVANA_Interactive_River_Map.html'
+                ]
+                for html_name in html_candidates:
+                    html_map = os.path.join(result_dir, html_name)
+                    if os.path.exists(html_map) and os.path.getsize(html_map) > 0:
+                        river_map_data["available"] = True
+                        river_map_data["files"]["interactive_html"] = {
+                            "name": html_name,
+                            "type": "html",
+                            "size": os.path.getsize(html_map),
+                            "size_kb": round(os.path.getsize(html_map) / 1024, 2),
+                            "download_url": f"/download/{job_id}/{html_name}",
+                            "preview_url": f"/preview/{job_id}/{html_name}",
+                            "description": "Interactive map with zoom, layers, and markers"
                         }
-                    except Exception as e:
-                        print(f"Error loading river map metadata: {e}")
+                        break
+
+                png_candidates = [
+                    'RIVANA_Peta_Aliran_Sungai.png',
+                    'RIVANA_River_Network_Map.png'
+                ]
+                for png_name in png_candidates:
+                    png_map = os.path.join(result_dir, png_name)
+                    if os.path.exists(png_map) and os.path.getsize(png_map) > 0:
+                        river_map_data["available"] = True
+                        river_map_data["files"]["static_png"] = {
+                            "name": png_name,
+                            "type": "png",
+                            "size": os.path.getsize(png_map),
+                            "size_kb": round(os.path.getsize(png_map) / 1024, 2),
+                            "download_url": f"/download/{job_id}/{png_name}",
+                            "preview_url": f"/preview/{job_id}/{png_name}",
+                            "description": "Static map for presentations and reports"
+                        }
+                        break
+
+                metadata_candidates = [
+                    'RIVANA_Metadata_Peta.json',
+                    'RIVANA_River_Network_Metadata.json'
+                ]
+                for metadata_name in metadata_candidates:
+                    metadata_file = os.path.join(result_dir, metadata_name)
+                    if os.path.exists(metadata_file) and os.path.getsize(metadata_file) > 0:
+                        try:
+                            with open(metadata_file, 'r', encoding='utf-8') as f:
+                                river_map_data["metadata"] = json.load(f)
+
+                            river_map_data["files"]["metadata_json"] = {
+                                "name": metadata_name,
+                                "type": "json",
+                                "size": os.path.getsize(metadata_file),
+                                "size_kb": round(os.path.getsize(metadata_file) / 1024, 2),
+                                "download_url": f"/download/{job_id}/{metadata_name}",
+                                "preview_url": f"/preview/{job_id}/{metadata_name}",
+                                "description": "River characteristics and statistics"
+                            }
+                        except Exception as e:
+                            print(f"Error loading river map metadata: {e}")
+                        break
 
                 if river_map_data["available"]:
                     river_map_data["summary"] = {
@@ -2157,15 +2196,22 @@ def run_hidrologi_process(job_id, params, result_dir):
                     print("Starting main_weap_ml.main()...")
                     sys.stdout.flush()
 
+                    shapefile_path = params.get('shapefile_path')
+                    auto_level = params.get('auto_level')
+                    lang = params.get('lang', 'en')
+
+                    print(f"Parameters forwarded to main(): shapefile_path={shapefile_path}, auto_level={auto_level}, lang={lang}")
+
                     main_weap_ml.main(
                         lon=longitude,
                         lat=latitude,
                         start=start,
                         end=end,
                         output_dir=result_dir,
-                        lang='en'  # Force English for API calls
+                        lang=lang,
+                        shapefile_path=shapefile_path,
+                        auto_level=auto_level
                     )
-
                 except Exception as main_error:
                     print(f"\n✗ ERROR in main_weap_ml.main(): {str(main_error)}")
                     print(f"Error type: {type(main_error).__name__}")
@@ -2196,10 +2242,12 @@ def run_hidrologi_process(job_id, params, result_dir):
                     'png': [
                         'RIVANA_Dashboard.png',
                         'RIVANA_Enhanced_Dashboard.png',
+                        'RIVANA_TWI_Dashboard.png',
                         'RIVANA_Water_Balance_Dashboard.png',
                         'RIVANA_Morphometry_Summary.png',
                         'RIVANA_Morphology_Ecology_Dashboard.png',
-                        'RIVANA_Baseline_Comparison.png'
+                        'RIVANA_Baseline_Comparison.png',
+                        'RIVANA_Peta_Aliran_Sungai.png'
                     ],
                     'csv': [
                         'RIVANA_Hasil_Complete.csv',
@@ -2212,7 +2260,12 @@ def run_hidrologi_process(job_id, params, result_dir):
                         'RIVANA_Model_Validation_Complete.json',
                         'RIVANA_Baseline_Comparison.json',
                         'RIVANA_Model_Validation_Report.json',
-                        'GEE_Data_Metadata.json'
+                        'GEE_Data_Metadata.json',
+                        'RIVANA_TWI_Analysis.json',
+                        'RIVANA_Metadata_Peta.json'
+                    ],
+                    'html': [
+                        'RIVANA_Peta_Aliran_Sungai.html'
                     ]
                 }
 
@@ -2246,14 +2299,21 @@ def run_hidrologi_process(job_id, params, result_dir):
                                 print(f"  ✅ JSON: {file_name} ({file_size:,} bytes)")
                             else:
                                 print(f"  ⚠️  WARNING: {file_name} is empty (0 bytes)")
+                        elif file_name.endswith('.html'):
+                            if file_size > 0:
+                                html_files.append(file_name)
+                                print(f"  ✅ HTML: {file_name} ({file_size:,} bytes)")
+                            else:
+                                print(f"  ⚠️  WARNING: {file_name} is empty (0 bytes)")
 
                 print(f"\n{'='*80}")
                 print("FILE COMPLETENESS CHECK:")
                 print(f"{'='*80}")
 
-                missing_png = set(expected_files['png']) - set(png_files)
-                missing_csv = set(expected_files['csv']) - set(csv_files)
-                missing_json = set(expected_files['json']) - set(json_files)
+                missing_png = set(expected_files.get('png', [])) - set(png_files)
+                missing_csv = set(expected_files.get('csv', [])) - set(csv_files)
+                missing_json = set(expected_files.get('json', [])) - set(json_files)
+                missing_html = set(expected_files.get('html', [])) - set(html_files)
 
                 if missing_png:
                     print(f"⚠️  Missing PNG files: {', '.join(missing_png)}")
@@ -2261,6 +2321,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                     print(f"⚠️  Missing CSV files: {', '.join(missing_csv)}")
                 if missing_json:
                     print(f"⚠️  Missing JSON files: {', '.join(missing_json)}")
+                if missing_html:
+                    print(f"⚠️  Missing HTML files: {', '.join(missing_html)}")
 
                 print(f"\n{'='*80}")
                 print(f"Summary - Files generated:")
@@ -2278,6 +2340,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                     missing_info.append(f"CSV: {', '.join(missing_csv)}")
                 if missing_json:
                     missing_info.append(f"JSON: {', '.join(missing_json)}")
+                if missing_html:
+                    missing_info.append(f"HTML: {', '.join(missing_html)}")
 
                 if not png_files and not csv_files:
                     RESULTS[job_id]["status"] = "failed"
@@ -2300,18 +2364,22 @@ def run_hidrologi_process(job_id, params, result_dir):
                     RESULTS[job_id]["missing_files"] = {
                         "png": list(missing_png),
                         "csv": list(missing_csv),
-                        "json": list(missing_json)
+                        "json": list(missing_json),
+                        "html": list(missing_html)
                     }
                     RESULTS[job_id]["files_generated"] = {
                         "png": len(png_files),
                         "csv": len(csv_files),
                         "json": len(json_files),
+                        "html": len(html_files),
                         "png_files": png_files,
                         "csv_files": csv_files,
                         "json_files": json_files,
-                        "expected_png": len(expected_files['png']),
-                        "expected_csv": len(expected_files['csv']),
-                        "expected_json": len(expected_files['json'])
+                        "html_files": html_files,
+                        "expected_png": len(expected_files.get('png', [])),
+                        "expected_csv": len(expected_files.get('csv', [])),
+                        "expected_json": len(expected_files.get('json', [])),
+                        "expected_html": len(expected_files.get('html', []))
                     }
                     RESULTS[job_id]["progress"] = 100
                     print(f"⚠️  WARNING: {warning_msg}")
@@ -2323,12 +2391,15 @@ def run_hidrologi_process(job_id, params, result_dir):
                         "png": len(png_files),
                         "csv": len(csv_files),
                         "json": len(json_files),
+                        "html": len(html_files),
                         "png_files": png_files,
                         "csv_files": csv_files,
                         "json_files": json_files,
-                        "expected_png": len(expected_files['png']),
-                        "expected_csv": len(expected_files['csv']),
-                        "expected_json": len(expected_files['json'])
+                        "html_files": html_files,
+                        "expected_png": len(expected_files.get('png', [])),
+                        "expected_csv": len(expected_files.get('csv', [])),
+                        "expected_json": len(expected_files.get('json', [])),
+                        "expected_html": len(expected_files.get('html', []))
                     }
                     RESULTS[job_id]["progress"] = 100
                     print(f"✅ SUCCESS: All expected files generated!")

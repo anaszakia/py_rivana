@@ -1,18 +1,18 @@
 {
-    "total_input_mm": 342.7938584723903,
-    "total_output_mm": 800.5025289654732,
-    "total_residual_mm": -457.7087124547528,
-    "residual_pct": -133.523020072315,
-    "mean_daily_error_pct": -1061303277.4486319,
-    "max_daily_error_pct": 1752800457.1795464,
+    "total_input_mm": 3498.051739803064,
+    "total_output_mm": 3981.06689453125,
+    "total_residual_mm": -483.0151547281862,
+    "residual_pct": -13.80811922339889,
+    "mean_daily_error_pct": -140981647.6980028,
+    "max_daily_error_pct": 911676979.0649414,
     "tolerance_pct": 5.0,
     "components": {
-        "evapotranspiration_mm": 387.1788330078125,
-        "evapotranspiration_pct": 112.94800750900767,
-        "runoff_mm": 413.41583251953125,
-        "runoff_pct": 120.6018784472561,
-        "storage_change_mm": -0.09209460020065308,
-        "storage_change_pct": -0.02686588394875536
+        "evapotranspiration_mm": 3645.01904296875,
+        "evapotranspiration_pct": 104.20140449877853,
+        "runoff_mm": 335.7876281738281,
+        "runoff_pct": 9.599275629717603,
+        "storage_change_mm": 0.26030850410461426,
+        "storage_change_pct": 0.0074415281267185985
     },
     "pass_validation": false,
     "validation_note": "Using journal standard tolerance (5%) for physics-informed models"

@@ -1,0 +1,100 @@
+{
+    "summary": {
+        "total_models": 7,
+        "models_passed": 0,
+        "models_marginal": 0,
+        "models_failed": 7
+    },
+    "detailed_results": {
+        "ML-Hydro-runoff": {
+            "model_name": "ML-Hydro-runoff",
+            "NSE": -0.417577862739563,
+            "R2": 0.12474577128887177,
+            "PBIAS": 21.608495712280273,
+            "RMSE": 0.1996876448392868,
+            "MAE": 0.1715242862701416,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "SATISFACTORY"
+        },
+        "ML-Hydro-infiltration": {
+            "model_name": "ML-Hydro-infiltration",
+            "NSE": -0.14384102821350098,
+            "R2": 0.0008092598291113973,
+            "PBIAS": 6.3225321769714355,
+            "RMSE": 0.0735018253326416,
+            "MAE": 0.06261878460645676,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        },
+        "ML-Hydro-percolation": {
+            "model_name": "ML-Hydro-percolation",
+            "NSE": -0.28010261058807373,
+            "R2": 0.005140627734363079,
+            "PBIAS": -8.319283485412598,
+            "RMSE": 0.005212400108575821,
+            "MAE": 0.003733481513336301,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        },
+        "ML-Hydro-baseflow": {
+            "model_name": "ML-Hydro-baseflow",
+            "NSE": -0.018863201141357422,
+            "R2": 0.0022984188981354237,
+            "PBIAS": -0.5448594689369202,
+            "RMSE": 0.0006931216339580715,
+            "MAE": 0.0005465223221108317,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        },
+        "ML-Hydro-reservoir": {
+            "model_name": "ML-Hydro-reservoir",
+            "NSE": -0.3921637535095215,
+            "R2": 0.01064211130142212,
+            "PBIAS": -8.021183013916016,
+            "RMSE": 0.30458202958106995,
+            "MAE": 0.21753278374671936,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        },
+        "ML-Hydro-soil_storage": {
+            "model_name": "ML-Hydro-soil_storage",
+            "NSE": 0.04404395818710327,
+            "R2": 0.06078251078724861,
+            "PBIAS": 1.9325590133666992,
+            "RMSE": 0.003778118407353759,
+            "MAE": 0.0029797221068292856,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        },
+        "ML-Hydro-aquifer": {
+            "model_name": "ML-Hydro-aquifer",
+            "NSE": -0.4218904972076416,
+            "R2": 0.19871746003627777,
+            "PBIAS": -5.355563163757324,
+            "RMSE": 0.1685062050819397,
+            "MAE": 0.1351843625307083,
+            "status": "FAIL",
+            "nse_interpretation": "UNSATISFACTORY",
+            "r2_interpretation": "UNSATISFACTORY",
+            "pbias_interpretation": "VERY GOOD"
+        }
+    },
+    "validation_criteria": {
+        "NSE_threshold": 0.5,
+        "R2_threshold": 0.6,
+        "PBIAS_threshold": 25,
+        "reference": "Muletationa (2012)"
+    }
+}

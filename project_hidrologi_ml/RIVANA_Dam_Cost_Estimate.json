@@ -1,0 +1,343 @@
+{
+  "metadata": {
+    "das_name": "Sub-DAS kecil (Level 7, ID 5070009770)",
+    "das_area_km2": 12261.8,
+    "provinsi": "Jawa Tengah",
+    "ikk_wilayah": 1.0,
+    "tipe_bangunan": "Waduk",
+    "tanggal_estimasi": "2026-06-16",
+    "referensi": [
+      "Data LPSE PUPR 2025-2026 (LPSE_Bendungan_Patched.csv — 128 paket, 21 provinsi)",
+      "SE Ditjen Bina Konstruksi No.68/2024 — AHSP SDA",
+      "Permen PUPR No.1/PRT/M/2022",
+      "BPS IKK 2024",
+      "Pd T-14-2004-A PUPR"
+    ],
+    "disclaimer": "Estimasi ORDER OF MAGNITUDE (±30%) untuk studi kelayakan awal."
+  },
+  "dimensi_tampungan": {
+    "v_tampungan_m3": 1267880543,
+    "a_kolam_m2": 1226783,
+    "h_rata_m": 1033.5,
+    "metode": "SAR Pd T-14-2004-A PUPR"
+  },
+  "estimasi_hps": {
+    "hps_minimum_rp": 17204400000,
+    "hps_moderat_rp": 227002500000,
+    "hps_maksimum_rp": 348760800000,
+    "sumber": "LPSE PUPR 2025-2026 — nasional (4 paket)",
+    "benchmark_lpse": {
+      "jumlah_paket": 4,
+      "hps_median_rp": 213750000000.0,
+      "hps_min_rp": 16200000000.0,
+      "hps_max_rp": 328400000000.0,
+      "level": "nasional",
+      "sumber": "LPSE PUPR 2025-2026 — semua provinsi"
+    },
+    "benchmark_tipe": {
+      "jumlah_paket": 4,
+      "hps_min_rp": 16200000000.0,
+      "hps_q1_rp": 78975000000.0,
+      "hps_median_rp": 213750000000.0,
+      "hps_q3_rp": 327800000000.0,
+      "hps_max_rp": 328400000000.0,
+      "sumber": "LPSE PUPR 2025-2026"
+    }
+  },
+  "rasio_kontrak_hps": {
+    "median": 83.74,
+    "q1": 81.71,
+    "q3": 92.98,
+    "n": 13,
+    "sumber": "LPSE PUPR 2025-2026"
+  },
+  "skenario": {
+    "minimum": {
+      "total_proyek_rp": 19600564316,
+      "estimasi_kontrak_rp": 16413512558,
+      "breakdown": {
+        "fisik_rp": 14623740000,
+        "overhead_rp": 2193561000,
+        "ppn_rp": 1849903110,
+        "ded_rp": 933360206
+      },
+      "komponen_biaya": {
+        "A. Persiapan & Mobilisasi": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 877424400,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "B. Galian & Pekerjaan Tanah": {
+          "persentase_pct": 25.0,
+          "jumlah_rp": 3655935000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "C. Timbunan Zona Urugan": {
+          "persentase_pct": 30.0,
+          "jumlah_rp": 4387122000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "D. Pekerjaan Beton & Struktur": {
+          "persentase_pct": 16.0,
+          "jumlah_rp": 2339798400,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "E. Bangunan Pengelak Sungai": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 877424400,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "F. Hidromekanikal": {
+          "persentase_pct": 7.0,
+          "jumlah_rp": 1023661800,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "G. Instrumentasi & Monitoring": {
+          "persentase_pct": 4.0,
+          "jumlah_rp": 584949600,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "H. Jalan Akses & Penunjang": {
+          "persentase_pct": 5.0,
+          "jumlah_rp": 731187000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "I. Revegetasi & Lingkungan": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 365593500,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "J. SMKK (K3 Konstruksi)": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 365593500,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        }
+      }
+    },
+    "moderat": {
+      "total_proyek_rp": 304257125812,
+      "estimasi_kontrak_rp": 254784917155,
+      "breakdown": {
+        "fisik_rp": 227002500000,
+        "overhead_rp": 34050375000,
+        "ppn_rp": 28715816250,
+        "ded_rp": 14488434562
+      },
+      "komponen_biaya": {
+        "A. Persiapan & Mobilisasi": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 13620150000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "B. Galian & Pekerjaan Tanah": {
+          "persentase_pct": 25.0,
+          "jumlah_rp": 56750625000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "C. Timbunan Zona Urugan": {
+          "persentase_pct": 30.0,
+          "jumlah_rp": 68100750000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "D. Pekerjaan Beton & Struktur": {
+          "persentase_pct": 16.0,
+          "jumlah_rp": 36320400000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "E. Bangunan Pengelak Sungai": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 13620150000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "F. Hidromekanikal": {
+          "persentase_pct": 7.0,
+          "jumlah_rp": 15890175000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "G. Instrumentasi & Monitoring": {
+          "persentase_pct": 4.0,
+          "jumlah_rp": 9080100000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "H. Jalan Akses & Penunjang": {
+          "persentase_pct": 5.0,
+          "jumlah_rp": 11350125000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "I. Revegetasi & Lingkungan": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 5675062500,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "J. SMKK (K3 Konstruksi)": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 5675062500,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        }
+      }
+    },
+    "maksimum": {
+      "total_proyek_rp": 560943383112,
+      "estimasi_kontrak_rp": 469733989018,
+      "breakdown": {
+        "fisik_rp": 418512960000,
+        "overhead_rp": 62776944000,
+        "ppn_rp": 52941889440,
+        "ded_rp": 26711589672
+      },
+      "komponen_biaya": {
+        "A. Persiapan & Mobilisasi": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 25110777600,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "B. Galian & Pekerjaan Tanah": {
+          "persentase_pct": 25.0,
+          "jumlah_rp": 104628240000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "C. Timbunan Zona Urugan": {
+          "persentase_pct": 30.0,
+          "jumlah_rp": 125553888000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "D. Pekerjaan Beton & Struktur": {
+          "persentase_pct": 16.0,
+          "jumlah_rp": 66962073600,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "E. Bangunan Pengelak Sungai": {
+          "persentase_pct": 6.0,
+          "jumlah_rp": 25110777600,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "F. Hidromekanikal": {
+          "persentase_pct": 7.0,
+          "jumlah_rp": 29295907200,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "G. Instrumentasi & Monitoring": {
+          "persentase_pct": 4.0,
+          "jumlah_rp": 16740518400,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "H. Jalan Akses & Penunjang": {
+          "persentase_pct": 5.0,
+          "jumlah_rp": 20925648000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "I. Revegetasi & Lingkungan": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 10462824000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        },
+        "J. SMKK (K3 Konstruksi)": {
+          "persentase_pct": 2.5,
+          "jumlah_rp": 10462824000,
+          "referensi": "SE DJBK No.68/2024 + LPSE PUPR 2025-2026"
+        }
+      }
+    }
+  },
+  "jadwal": {
+    "total_bulan": 54,
+    "total_tahun": 4.5,
+    "rentang_bulan": "36–84",
+    "tahapan": [
+      {
+        "tahap": "Tahap I: Persiapan & Mobilisasi",
+        "mulai_bulan": 1,
+        "selesai_bulan": 4,
+        "durasi_bulan": 4
+      },
+      {
+        "tahap": "Tahap II: Investigasi & Desain Detail",
+        "mulai_bulan": 3,
+        "selesai_bulan": 7,
+        "durasi_bulan": 5
+      },
+      {
+        "tahap": "Tahap III: Pengelakan Sungai",
+        "mulai_bulan": 7,
+        "selesai_bulan": 12,
+        "durasi_bulan": 6
+      },
+      {
+        "tahap": "Tahap IV: Galian & Persiapan Pondasi",
+        "mulai_bulan": 10,
+        "selesai_bulan": 17,
+        "durasi_bulan": 8
+      },
+      {
+        "tahap": "Tahap V: Konstruksi Tubuh Bangunan",
+        "mulai_bulan": 16,
+        "selesai_bulan": 37,
+        "durasi_bulan": 22
+      },
+      {
+        "tahap": "Tahap VI: Bangunan Pelimpah & Mekanikal",
+        "mulai_bulan": 23,
+        "selesai_bulan": 37,
+        "durasi_bulan": 15
+      },
+      {
+        "tahap": "Tahap VII: Pengisian & Impounding",
+        "mulai_bulan": 43,
+        "selesai_bulan": 48,
+        "durasi_bulan": 6
+      },
+      {
+        "tahap": "Tahap VIII: Finishing & Serah Terima",
+        "mulai_bulan": 48,
+        "selesai_bulan": 53,
+        "durasi_bulan": 6
+      }
+    ]
+  },
+  "paket_lpse_serupa": [
+    {
+      "nama_paket": "Pembangunan IPA Kap. 100 L/detik SPAM Waduk  Gondang Kabupaten Sragen",
+      "provinsi": "Jawa Tengah",
+      "tahun_anggaran": 2026,
+      "pagu_anggaran_rp": 99900000000.0,
+      "hps_rp": 99900000000.0,
+      "nilai_kontrak_rp": NaN,
+      "pct_kontrak_vs_hps": NaN,
+      "tahapan_status": "Tender Sudah Selesai",
+      "url_detail": "https://spse.inaproc.id/pu/lelang/10126728000/pengumumanlelang"
+    },
+    {
+      "nama_paket": "Penyempurnaan Instrumen Waduk Muara Nusa Dua di Kota Denpasar; 1 Unit; 0 Juta M3; F; K; SYC",
+      "provinsi": "Bali",
+      "tahun_anggaran": 2026,
+      "pagu_anggaran_rp": 29460201000.0,
+      "hps_rp": 16200000000.0,
+      "nilai_kontrak_rp": NaN,
+      "pct_kontrak_vs_hps": NaN,
+      "tahapan_status": "Tender Sudah Selesai",
+      "url_detail": "https://spse.inaproc.id/pu/lelang/10132547000/pengumumanlelang"
+    },
+    {
+      "nama_paket": "Peningkatan Jaringan Irigasi DI Waduk Bening Kab. Nganjuk Paket 1",
+      "provinsi": "Jawa Timur",
+      "tahun_anggaran": 2026,
+      "pagu_anggaran_rp": 328500000000.0,
+      "hps_rp": 328400000000.0,
+      "nilai_kontrak_rp": NaN,
+      "pct_kontrak_vs_hps": NaN,
+      "tahapan_status": "Tender Batal",
+      "url_detail": "https://spse.inaproc.id/pu/lelang/10109259000/pengumumanlelang"
+    },
+    {
+      "nama_paket": "Peningkatan Jaringan Irigasi DI Waduk Bening Kab. Nganjuk Paket 2",
+      "provinsi": "Jawa Timur",
+      "tahun_anggaran": 2026,
+      "pagu_anggaran_rp": 328500000000.0,
+      "hps_rp": 327600000000.0,
+      "nilai_kontrak_rp": NaN,
+      "pct_kontrak_vs_hps": NaN,
+      "tahapan_status": "Tender Batal",
+      "url_detail": "https://spse.inaproc.id/pu/lelang/10109310000/pengumumanlelang"
+    }
+  ]
+}
