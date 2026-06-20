@@ -41,7 +41,7 @@ API SERVER HIDROLOGI ML (RIVANA)
 
 Output Files Generated:
 -----------------------
-PNG Files (7):
+PNG Files (8):
   1. RIVANA_Dashboard.png - Main dashboard
   2. RIVANA_Enhanced_Dashboard.png - Enhanced visualization
   3. RIVANA_Water_Balance_Dashboard.png - Water balance analysis
@@ -49,9 +49,10 @@ PNG Files (7):
   5. RIVANA_Morphology_Ecology_Dashboard.png - Morphology & ecology
   6. RIVANA_Baseline_Comparison.png - ML vs Traditional methods
   7. RIVANA_TWI_Dashboard.png - 🌊 NEW: TWI Analysis Dashboard (flood zones & RTH)
+  8. RIVANA_Peta_Aliran_Sungai.png - River flow map
 
 HTML Files (1):
-  1. RIVANA_Interactive_River_Map.html - 🗺️ NEW: Interactive river map
+  1. RIVANA_Peta_Aliran_Sungai.html - 🗺️ NEW: Interactive river map
      (Can be opened in browser, includes zoom, layer toggle, and markers)
 
 CSV Files (4):
@@ -63,17 +64,20 @@ CSV Files (4):
       temperature, soil_moisture, ndvi, evapotranspiration)
      Sorted by date for historical analysis
 
-JSON Files (7):
+JSON Files (9):
   1. RIVANA_WaterBalance_Validation.json - Water balance validation (error ≤ 5%)
   2. RIVANA_Model_Validation_Complete.json - NSE, R², PBIAS, RMSE metrics
   3. RIVANA_Baseline_Comparison.json - ML vs Traditional comparison results
   4. RIVANA_Model_Validation_Report.json - Detailed validation report
-  5. RIVANA_River_Network_Metadata.json - 🌊 River map metadata & characteristics
+  5. RIVANA_Metadata_Peta.json - 🌊 River map metadata & characteristics
   6. GEE_Data_Metadata.json - ⭐ GEE data sources & statistics
   7. RIVANA_TWI_Analysis.json - 🌊 NEW: TWI analysis, flood zones, RTH & drainage recommendations
+  8. RIVANA_Dam_Cost_Estimate.json - 🏗️ NEW: Estimasi biaya pembangunan bendungan
+                                     (HPS minimum/moderat/maksimum, RAB komponen,
+                                      jadwal pengerjaan, benchmark LPSE PUPR 2025-2026)
+  9. params.json - Input parameters
 
 Additional Files:
-  - params.json - Input parameters
   - process.log - Complete execution log
 """
 
@@ -84,6 +88,14 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
     print("⚠️  Warning: pandas not available, fitur summary akan terbatas")
+
+# Import das_selector untuk endpoint /das-info (pemilihan DAS via HydroSHEDS)
+try:
+    from das_selector import select_das
+    DAS_SELECTOR_LOADED = True
+except ImportError:
+    DAS_SELECTOR_LOADED = False
+    print("⚠️  Warning: das_selector.py not found, /das-info endpoint will be unavailable")
 
 # Simpan hasil proses berdasarkan job ID
 RESULTS = {}
@@ -197,7 +209,8 @@ def load_existing_jobs():
             ('River_Map' in f or 'River_Network' in f or 'Peta_Aliran_Sungai' in f)
             for f in png_files + html_files + json_files
         )
-        has_twi = any('TWI' in f for f in png_files + json_files)
+        has_twi      = any('TWI' in f for f in png_files + json_files)
+        has_dam_cost = any('Dam_Cost_Estimate' in f for f in json_files)
 
         if len(png_files) > 0 or len(csv_files) > 0:
             status = "completed"
@@ -243,11 +256,41 @@ def load_existing_jobs():
                 "dashboard_png": any('RIVANA_TWI_Dashboard.png' in f for f in png_files),
                 "analysis_json": any('RIVANA_TWI_Analysis.json' in f for f in json_files)
             },
+            "dam_cost_estimate": {
+                "available": has_dam_cost,
+                "json": any('RIVANA_Dam_Cost_Estimate.json' in f for f in json_files)
+            },
             "progress": 100
         }
         job_count += 1
 
     print(f"✅ Loaded {job_count} existing jobs from disk\n")
+
+_GEE_INITIALIZED = False
+
+def ensure_gee_initialized():
+    """
+    Init GEE sekali saja per proses server, dipakai oleh endpoint /das-info.
+    Terpisah dari init GEE di main_weap_ml.main() - tidak mengubah pipeline ML yang sudah ada.
+    """
+    global _GEE_INITIALIZED
+    if _GEE_INITIALIZED:
+        return
+
+    import ee
+    service_account_key = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gee-credentials.json')
+    try:
+        if os.path.exists(service_account_key):
+            credentials = ee.ServiceAccountCredentials(email=None, key_file=service_account_key)
+            ee.Initialize(credentials=credentials, project='fabled-era-474402-g2')
+        else:
+            ee.Initialize(project='fabled-era-474402-g2')
+        _GEE_INITIALIZED = True
+        print("✅ GEE connected (for /das-info)")
+    except Exception:
+        ee.Authenticate()
+        ee.Initialize(project='fabled-era-474402-g2')
+        _GEE_INITIALIZED = True
 
 class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
     def _check_auth(self):
@@ -284,24 +327,37 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-type', content_type)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
 
     def do_OPTIONS(self):
         self._set_response()
 
     def _get_lang(self):
-        """Detect language from RIVANA_LANG env var (set by main_weap_ml per job)"""
+        """
+        Detect language for the current request.
+
+        IMPORTANT: previously this read os.environ['RIVANA_LANG'], which is set
+        process-wide by main_weap_ml.main() for every job. Since jobs run in
+        background threads (see run_hidrologi_process), two jobs with different
+        'lang' running concurrently would clobber each other's env var, and old
+        completed jobs would pick up whichever 'lang' the most-recently-run job
+        happened to set (not their own original language). self._lang_override
+        is set per-request in do_GET() right before generating a job summary,
+        which makes this correct even with concurrent jobs.
+        """
+        if getattr(self, '_lang_override', None):
+            return self._lang_override
         return os.environ.get('RIVANA_LANG', 'en')
 
-    def _generate_forecast_recommendation(self, df):
-        """Generate forecast recommendation based on rainfall prediction"""
+    def _generate_forecast_recommendation(self, df_pred):
+        """Generate forecast recommendation based on the actual 30-day rainfall forecast dataframe"""
         lang = self._get_lang()
         try:
-            if 'forecast_rainfall' not in df.columns or len(df) < 30:
+            if 'rainfall' not in df_pred.columns or len(df_pred) == 0:
                 return get_text('forecast_insufficient_data', lang)
 
-            recent_forecast = df['forecast_rainfall'].iloc[-30:].mean()
+            recent_forecast = df_pred['rainfall'].mean()
 
             if recent_forecast > 10:
                 return get_text('forecast_high_rain', lang)
@@ -407,7 +463,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
         summary = {
             "title": get_text('summary_title', lang),
             "job_info": {},
-            "input_parameterers": {},
+            "input_parameters": {},
             "analysis_results": {},
             "statistik_data": {},
             "water_balance": {},
@@ -439,13 +495,17 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
 
             # Input Parameters
             params = job_data.get("params", {})
-            summary["input_parameterers"] = {
+            summary["input_parameters"] = {
                 "longitude": params.get("longitude", na_text),
                 "latitude": params.get("latitude", na_text),
                 "start_date": params.get("start", na_text),
                 "end_date": params.get("end", na_text),
-                "periode_analisis": f"{params.get('start', na_text)} s/d {params.get('end', na_text)}"
+                "periode_analisis": f"{params.get('start', na_text)} s/d {params.get('end', na_text)}",
+                "shapefile_path": params.get("shapefile_path", na_text),
+                "auto_level": params.get("auto_level", na_text),
+                "lang": params.get("lang", "en")
             }
+            summary["input_parameterers"] = summary["input_parameters"]
 
             print(f"\n{'='*80}")
             print(f"SUMMARY GENERATION DEBUG:")
@@ -545,6 +605,19 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             else:
                 print(f"❌ Validation file not found: {validation_file}")
                 summary["water_balance"]["error_detail"] = get_text('validation_file_not_available', lang)
+
+            # monthly_file (RIVANA_Monthly_WaterBalance.csv) was accepted as a parameter but never
+            # actually read - the line below fixes that and overrides the (always empty) placeholder
+            # 'monthly_summary' that used to be pulled from validation_file's JSON instead.
+            if os.path.exists(monthly_file):
+                try:
+                    df_monthly = pd.read_csv(monthly_file)
+                    summary["water_balance"]["monthly_summary"] = df_monthly.to_dict(orient='records')
+                    print(f"✅ Monthly water balance loaded: {len(df_monthly)} months")
+                except Exception as e:
+                    print(f"⚠️ Could not read monthly water balance file: {e}")
+            else:
+                print(f"⚠️ Monthly water balance file not found: {monthly_file}")
 
             print(f"{'='*80}\n")
 
@@ -805,7 +878,66 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             else:
                 print(f"ℹ️ Info: River network file not found (optional): {river_metadata_files}")
 
-            # 5. Additional data extraction from CSV
+            # 5. Dam Cost Estimate JSON (BARU)
+            dam_cost_file = os.path.join(job_dir, 'RIVANA_Dam_Cost_Estimate.json')
+            if os.path.exists(dam_cost_file):
+                try:
+                    with open(dam_cost_file, 'r', encoding='utf-8') as f:
+                        dam_data = json.load(f)
+                    meta     = dam_data.get('metadata', {})
+                    skenario = dam_data.get('skenario', {})
+                    jadwal   = dam_data.get('jadwal', {})
+                    mod      = skenario.get('moderat', {})
+                    summary["dam_cost_estimate"] = {
+                        "tipe_bangunan":   meta.get('tipe_bangunan', na_text),
+                        "provinsi":        meta.get('provinsi', na_text),
+                        "ikk_wilayah":     meta.get('ikk_wilayah', na_text),
+                        "referensi":       meta.get('referensi', []),
+                        "disclaimer":      meta.get('disclaimer', ''),
+                        "dimensi": {
+                            "v_tampungan_m3": dam_data.get('dimensi_tampungan', {}).get('v_tampungan_m3', 0),
+                            "h_rata_m":       dam_data.get('dimensi_tampungan', {}).get('h_rata_m', 0),
+                        },
+                        "estimasi_hps": {
+                            "minimum_rp":  dam_data.get('estimasi_hps', {}).get('hps_minimum_rp', 0),
+                            "moderat_rp":  dam_data.get('estimasi_hps', {}).get('hps_moderat_rp', 0),
+                            "maksimum_rp": dam_data.get('estimasi_hps', {}).get('hps_maksimum_rp', 0),
+                            "sumber":      dam_data.get('estimasi_hps', {}).get('sumber', na_text),
+                        },
+                        "skenario": {
+                            "minimum": {
+                                "total_proyek_rp":     skenario.get('minimum', {}).get('total_proyek_rp', 0),
+                                "estimasi_kontrak_rp": skenario.get('minimum', {}).get('estimasi_kontrak_rp', 0),
+                            },
+                            "moderat": {
+                                "total_proyek_rp":     mod.get('total_proyek_rp', 0),
+                                "estimasi_kontrak_rp": mod.get('estimasi_kontrak_rp', 0),
+                                "breakdown":           mod.get('breakdown', {}),
+                                "komponen_biaya":      mod.get('komponen_biaya', {}),
+                            },
+                            "maksimum": {
+                                "total_proyek_rp":     skenario.get('maksimum', {}).get('total_proyek_rp', 0),
+                                "estimasi_kontrak_rp": skenario.get('maksimum', {}).get('estimasi_kontrak_rp', 0),
+                            },
+                        },
+                        "jadwal": {
+                            "total_bulan":   jadwal.get('total_bulan', 0),
+                            "total_tahun":   jadwal.get('total_tahun', 0),
+                            "rentang_bulan": jadwal.get('rentang_bulan', na_text),
+                            "tahapan":       jadwal.get('tahapan', []),
+                        },
+                        "rasio_kontrak_hps": dam_data.get('rasio_kontrak_hps', {}),
+                        "paket_lpse_serupa": dam_data.get('paket_lpse_serupa', []),
+                    }
+                    print(f"✅ Dam cost estimate data loaded")
+                except Exception as e:
+                    print(f"⚠️ Could not read dam cost estimate file: {e}")
+                    summary["dam_cost_estimate"] = {"status": "error", "error": str(e)}
+            else:
+                print(f"ℹ️ Dam cost estimate file not found: {dam_cost_file}")
+                summary["dam_cost_estimate"] = {"status": get_text('not_available_for_job', lang)}
+
+            # 6. Additional data extraction from CSV
             if os.path.exists(csv_file):
                 df = pd.read_csv(csv_file)
 
@@ -875,27 +1007,70 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         summary["alokasi_sektor"] = {"error": "Data not available"}
                         summary["analysis_results"]["water_supply_per_sector"] = {"error": "Data not available"}
 
-                if 'total_supply' in df.columns:
+                network_source_cols = ['supply_River', 'supply_Diversion', 'supply_Groundwater']
+                if all(col in df.columns for col in network_source_cols):
+                    total_supply_net = sum(df[col].mean() for col in network_source_cols)
+                    summary["analysis_results"]["water_sources"] = {
+                        get_text('source_river', lang): {
+                            "supply": f"{df['supply_River'].mean():.2f} mm/hari",
+                            "biaya": f"Rp {df['cost_River'].mean():,.0f}/hari" if 'cost_River' in df.columns else na_text,
+                            "kontribusi": f"{(df['supply_River'].mean() / total_supply_net * 100):.1f}%" if total_supply_net > 0 else "0%"
+                        },
+                        get_text('source_diversion', lang): {
+                            "supply": f"{df['supply_Diversion'].mean():.2f} mm/hari",
+                            "biaya": f"Rp {df['cost_Diversion'].mean():,.0f}/hari" if 'cost_Diversion' in df.columns else na_text,
+                            "kontribusi": f"{(df['supply_Diversion'].mean() / total_supply_net * 100):.1f}%" if total_supply_net > 0 else "0%"
+                        },
+                        get_text('source_groundwater', lang): {
+                            "supply": f"{df['supply_Groundwater'].mean():.2f} mm/hari",
+                            "biaya": f"Rp {df['cost_Groundwater'].mean():,.0f}/hari" if 'cost_Groundwater' in df.columns else na_text,
+                            "kontribusi": f"{(df['supply_Groundwater'].mean() / total_supply_net * 100):.1f}%" if total_supply_net > 0 else "0%"
+                        },
+                        "sumber_data": "MLSupplyNetwork"
+                    }
+                elif 'total_supply' in df.columns:
+                    # Fallback: MLSupplyNetwork columns not available, use rough fixed-ratio estimate
                     total_supply = df['total_supply'].mean()
                     summary["analysis_results"]["water_sources"] = {
                         get_text('source_river', lang): {
                             "supply": f"{total_supply * 0.60:.2f} mm/hari",
-                            "biaya": "Rp 150/m³",
+                            "biaya": "Rp 150/m³ (estimasi)",
                             "kontribusi": "60%"
                         },
                         get_text('source_diversion', lang): {
                             "supply": f"{total_supply * 0.25:.2f} mm/hari",
-                            "biaya": "Rp 200/m³",
+                            "biaya": "Rp 200/m³ (estimasi)",
                             "kontribusi": "25%"
                         },
                         get_text('source_groundwater', lang): {
                             "supply": f"{total_supply * 0.15:.2f} mm/hari",
-                            "biaya": "Rp 350/m³",
+                            "biaya": "Rp 350/m³ (estimasi)",
                             "kontribusi": "15%"
-                        }
+                        },
+                        "sumber_data": "Estimasi (kolom MLSupplyNetwork tidak tersedia)"
                     }
 
-                if 'total_supply' in df.columns and 'total_demand' in df.columns:
+                cost_benefit_cols = ['net_benefit', 'total_cost', 'total_benefit']
+                if all(col in df.columns for col in cost_benefit_cols):
+                    try:
+                        total_biaya = df['total_cost'].sum()
+                        total_manfaat = df['total_benefit'].sum()
+                        net_benefit = df['net_benefit'].sum()
+                        efisiensi = (total_manfaat / total_biaya * 100) if total_biaya > 0 else 0
+
+                        summary["analysis_results"]["economics"] = {
+                            "total_biaya": f"Rp {total_biaya:,.0f}",
+                            "total_manfaat": f"Rp {total_manfaat:,.0f}",
+                            "net_benefit": f"Rp {net_benefit:,.0f}",
+                            "efisiensi": f"{efisiensi:.1f}%",
+                            "energi_rata_rata": f"{df['energy_kwh'].mean():.1f} kWh/hari" if 'energy_kwh' in df.columns else na_text,
+                            "sumber_data": "MLCostBenefitDam"
+                        }
+                    except Exception as e:
+                        print(f"⚠️ Warning: Could not read MLCostBenefitDam columns: {e}")
+                        summary["analysis_results"]["economics"] = {"error": "Economic data not available"}
+                elif 'total_supply' in df.columns and 'total_demand' in df.columns:
+                    # Fallback: MLCostBenefitDam columns not available, use rough estimate
                     try:
                         total_vol = df['total_supply'].sum()
                         biaya_operasi = total_vol * 150
@@ -916,6 +1091,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "total_manfaat": f"Rp {total_manfaat:,.0f}",
                             "net_benefit": f"Rp {net_benefit:,.0f}",
                             "efisiensi": f"{efisiensi:.1f}%",
+                            "sumber_data": "Estimasi (kolom MLCostBenefitDam tidak tersedia)",
                             "breakdown": {
                                 get_text('econ_operational_cost', lang): f"Rp {biaya_operasi:,.0f}",
                                 get_text('econ_maintenance_cost', lang): f"Rp {biaya_pemeliharaan:,.0f}",
@@ -929,28 +1105,41 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         print(f"⚠️ Warning: Could not generate economics data: {e}")
                         summary["analysis_results"]["economics"] = {"error": "Economic data not available"}
 
-                summary["prediksi_30_hari"] = {
-                    "rainfall": {
-                        "rata_rata": f"{df['forecast_rainfall'].mean():.2f} mm/hari" if 'forecast_rainfall' in df.columns else get_text('forecast_data_not_yet_available', lang),
-                        "minimum": f"{df['forecast_rainfall'].min():.2f} mm" if 'forecast_rainfall' in df.columns else na_text,
-                        "maximum": f"{df['forecast_rainfall'].max():.2f} mm" if 'forecast_rainfall' in df.columns else na_text,
-                        "total": f"{df['forecast_rainfall'].sum():.2f} mm" if 'forecast_rainfall' in df.columns else na_text
-                    },
-                    "reservoir": {
-                        "kondisi_saat_ini": f"{df['reservoir'].iloc[-1]:.2f} mm" if len(df) > 0 and 'reservoir' in df.columns else na_text,
-                        "prediksi_30_hari": f"{df['forecast_reservoir'].iloc[-1]:.2f} mm" if 'forecast_reservoir' in df.columns and len(df) > 0 else na_text,
-                        "persentase_capacity": f"{(df['reservoir'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 and 'reservoir' in df.columns else na_text
-                    },
-                    "reliability": {
-                        "saat_ini": f"{df['reliability'].mean() * 100:.1f}%" if 'reliability' in df.columns else na_text,
-                        "prediksi_30_hari": f"{df['reliability'].iloc[-30:].mean() * 100:.1f}%" if 'reliability' in df.columns and len(df) >= 30 else na_text,
-                        "tren": get_text('trend_stable', lang) if 'reliability' in df.columns and len(df) >= 30 and abs(df['reliability'].mean() - df['reliability'].iloc[-30:].mean()) < 0.05 else get_text('trend_changing', lang)
-                    },
-                    "rekomendasi_forecast": self._generate_forecast_recommendation(df) if len(df) > 0 else get_text('forecast_insufficient_data', lang)
-                }
+                prediksi_file = os.path.join(job_dir, 'RIVANA_Prediksi_30Hari.csv')
+                if os.path.exists(prediksi_file):
+                    try:
+                        df_pred = pd.read_csv(prediksi_file)
+                        summary["prediksi_30_hari"] = {
+                            "rainfall": {
+                                "rata_rata": f"{df_pred['rainfall'].mean():.2f} mm/hari" if 'rainfall' in df_pred.columns else na_text,
+                                "minimum": f"{df_pred['rainfall'].min():.2f} mm" if 'rainfall' in df_pred.columns else na_text,
+                                "maximum": f"{df_pred['rainfall'].max():.2f} mm" if 'rainfall' in df_pred.columns else na_text,
+                                "total": f"{df_pred['rainfall'].sum():.2f} mm" if 'rainfall' in df_pred.columns else na_text
+                            },
+                            "reservoir": {
+                                "kondisi_saat_ini": f"{df['reservoir'].iloc[-1]:.2f} mm" if len(df) > 0 and 'reservoir' in df.columns else na_text,
+                                "prediksi_30_hari": f"{df_pred['reservoir'].iloc[-1]:.2f} mm" if 'reservoir' in df_pred.columns and len(df_pred) > 0 else na_text,
+                                "persentase_capacity": f"{(df['reservoir'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 and 'reservoir' in df.columns else na_text
+                            },
+                            "reliability": {
+                                "saat_ini": f"{df['reliability'].mean() * 100:.1f}%" if 'reliability' in df.columns else na_text,
+                                "prediksi_30_hari": f"{df_pred['reliability'].mean() * 100:.1f}%" if 'reliability' in df_pred.columns else na_text,
+                                "tren": get_text('trend_stable', lang) if 'reliability' in df.columns and 'reliability' in df_pred.columns and abs(df['reliability'].mean() - df_pred['reliability'].mean()) < 0.05 else get_text('trend_changing', lang)
+                            },
+                            "rekomendasi_forecast": self._generate_forecast_recommendation(df_pred)
+                        }
+                        print(f"✅ 30-day forecast loaded from {os.path.basename(prediksi_file)}: {len(df_pred)} days")
+                    except Exception as e:
+                        print(f"⚠️ Could not read 30-day forecast file: {e}")
+                        summary["prediksi_30_hari"] = {"status": get_text('forecast_data_not_yet_available', lang)}
+                else:
+                    print(f"⚠️ 30-day forecast file not found: {prediksi_file}")
+                    summary["prediksi_30_hari"] = {"status": get_text('forecast_data_not_yet_available', lang)}
 
-                if 'Retention Pond_action' in df.columns:
-                    action_raw = df['Retention Pond_action'].iloc[-1] if len(df) > 0 and 'Retention Pond_action' in df.columns else "MAINTAIN"
+
+
+                if 'rekomendasi' in df.columns:
+                    action_raw = df['rekomendasi'].iloc[-1] if len(df) > 0 else "PERTAHANKAN"
                     summary["operasi_reservoir"] = {
                         "volume_saat_ini": f"{df['reservoir'].iloc[-1]:.2f} mm" if len(df) > 0 else na_text,
                         "persentase_capacity": f"{(df['reservoir'].iloc[-1] / 100.0 * 100):.1f}%" if len(df) > 0 else na_text,
@@ -958,9 +1147,9 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         "tren_30_hari": get_text('trend_rising', lang) if len(df) >= 30 and df['reservoir'].iloc[-1] > df['reservoir'].iloc[-30] else get_text('trend_falling', lang) if len(df) >= 30 else get_text('trend_stable', lang)
                     }
 
-                morph_cols = ['channel_width', 'slope', 'total_sedimentt']
+                morph_cols = ['channel_width', 'slope_degree', 'total_sedimentt']
                 if any(col in df.columns for col in morph_cols):
-                    slope_value = df['slope'].mean() if 'slope' in df.columns else None
+                    slope_value = df['slope_degree'].mean() if 'slope_degree' in df.columns else None
                     slope_str = f"{slope_value:.2f}°" if slope_value is not None else na_text
 
                     morfologi_data = {
@@ -1117,7 +1306,7 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                         }
                     }
 
-                if 'erosion_rate' in df.columns and 'sediment_transport' in df.columns:
+                if 'erosion_rate' in df.columns and 'total_sedimentt' in df.columns:
                     er_mean = df['erosion_rate'].mean()
                     kondisi_sungai_soil_storage["erosion_sediment"] = {
                         "laju_erosion": {
@@ -1126,8 +1315,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                             "total_tahunan": f"{df['erosion_rate'].sum():.2f} ton/ha"
                         },
                         "transport_sediment": {
-                            "capacity": f"{df['sediment_transport'].mean():.2f} kg/s",
-                            "efisiensi": f"{(df['sediment_transport'].mean() / df['total_sedimentt'].mean() * 100):.1f}%" if 'total_sedimentt' in df.columns and df['total_sedimentt'].mean() > 0 else na_text
+                            "suspended_sediment": f"{df['suspended_sediment'].mean():.2f} mg/L" if 'suspended_sediment' in df.columns else na_text,
+                            "bedload": f"{df['bedload'].mean():.2f} mg/L" if 'bedload' in df.columns else na_text,
+                            "total_sedimentt": f"{df['total_sedimentt'].mean():.2f} ton/hari",
+                            "efisiensi_pengangkutan": f"{(df['total_sedimentt'].mean() / df['erosion_rate'].mean() * 100):.1f}%" if er_mean > 0 else na_text
                         }
                     }
 
@@ -1385,11 +1576,13 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             json_priority = {
                 'RIVANA_Model_Validation_Complete.json': 1,
                 'RIVANA_Baseline_Comparison.json': 2,
-                'RIVANA_TWI_Analysis.json': 3,
-                'RIVANA_WaterBalance_Validation.json': 4,
-                'RIVANA_Model_Validation_Report.json': 5,
-                'RIVANA_River_Network_Metadata.json': 6,
-                'GEE_Data_Metadata.json': 7
+                'RIVANA_Dam_Cost_Estimate.json': 3,
+                'RIVANA_TWI_Analysis.json':       4,
+                'RIVANA_WaterBalance_Validation.json': 5,
+                'RIVANA_Model_Validation_Report.json': 6,
+                'RIVANA_River_Network_Metadata.json': 7,
+                'RIVANA_Metadata_Peta.json': 7,
+                'GEE_Data_Metadata.json': 8
             }
             return (3, json_priority.get(filename, 99), filename)
         else:
@@ -1679,6 +1872,10 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             if job_id in RESULTS and RESULTS[job_id]["status"] in ["completed", "completed_with_warning"]:
                 try:
                     result_dir = get_job_result_path(job_id)
+
+                    # Use THIS job's own stored language, not whatever happens to be in
+                    # os.environ['RIVANA_LANG'] right now (see _get_lang() docstring).
+                    self._lang_override = RESULTS[job_id].get("params", {}).get("lang", "en")
 
                     print(f"\n{'='*80}")
                     print(f"ENDPOINT /summary/{job_id} - START")
@@ -2075,12 +2272,20 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
                     }).encode('utf-8'))
                     return
 
+                das_info = {
+                    "name": params.get("das_name", ""),
+                    "area_km2": params.get("das_area_km2", 0),
+                    "level": params.get("das_level"),
+                    "hybas_id": params.get("hybas_id"),
+                }
+
                 job_id = str(uuid.uuid4())
                 RESULTS[job_id] = {
                     "job_id": job_id,
                     "status": "processing",
                     "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "params": params
+                    "params": params,
+                    "das_info": das_info
                 }
 
                 result_dir = get_job_result_path(job_id)
@@ -2103,6 +2308,87 @@ class HidrologiRequestHandler(http.server.BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 self._set_response(400)
                 self.wfile.write(json.dumps({"error": "Invalid JSON format"}).encode('utf-8'))
+
+        elif self.path == '/das-info':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+
+            try:
+                body = json.loads(post_data.decode('utf-8'))
+            except json.JSONDecodeError:
+                self._set_response(400)
+                self.wfile.write(json.dumps({
+                    "success": False, "message": "Invalid JSON format"
+                }).encode('utf-8'))
+                return
+
+            if not DAS_SELECTOR_LOADED:
+                self._set_response(500)
+                self.wfile.write(json.dumps({
+                    "success": False, "message": "das_selector.py tidak ditemukan di server"
+                }).encode('utf-8'))
+                return
+
+            lat   = body.get('lat')
+            lon   = body.get('lon')
+            level = body.get('level')
+
+            if lat is None or lon is None or level is None:
+                self._set_response(400)
+                self.wfile.write(json.dumps({
+                    "success": False, "message": "Parameter 'lat', 'lon', dan 'level' wajib diisi"
+                }).encode('utf-8'))
+                return
+
+            try:
+                lat   = float(lat)
+                lon   = float(lon)
+                level = int(level)
+            except (TypeError, ValueError):
+                self._set_response(400)
+                self.wfile.write(json.dumps({
+                    "success": False, "message": "Format lat/lon/level tidak valid"
+                }).encode('utf-8'))
+                return
+
+            if level < 3 or level > 8:
+                self._set_response(400)
+                self.wfile.write(json.dumps({
+                    "success": False, "message": "Level HydroSHEDS harus antara 3-8"
+                }).encode('utf-8'))
+                return
+
+            try:
+                ensure_gee_initialized()
+                das = select_das(lon, lat, auto_level=level)
+
+                self._set_response(200)
+                self.wfile.write(json.dumps({
+                    "success":  True,
+                    "name":     das.name,
+                    "area_km2": das.area_km2,
+                    "hybas_id": das.hybas_id,
+                    "level":    das.level,
+                    "source":   das.source,
+                    "geometry": das.geometry.getInfo()
+                }).encode('utf-8'))
+
+            except ValueError as ve:
+                self._set_response(404)
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "message": str(ve).replace('❌ ', '')
+                }).encode('utf-8'))
+
+            except Exception as e:
+                print(f"❌ ERROR /das-info: {str(e)}")
+                traceback.print_exc()
+                self._set_response(500)
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "message": f"Gagal mengambil data DAS: {str(e)}"
+                }).encode('utf-8'))
+
         else:
             self._set_response(404)
             self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode('utf-8'))
@@ -2197,10 +2483,19 @@ def run_hidrologi_process(job_id, params, result_dir):
                     sys.stdout.flush()
 
                     shapefile_path = params.get('shapefile_path')
-                    auto_level = params.get('auto_level')
-                    lang = params.get('lang', 'en')
+                    auto_level     = params.get('auto_level')
+                    lang           = params.get('lang', 'en')
+                    das_name       = params.get('das_name', '')
+                    das_area_km2   = params.get('das_area_km2', 0)
+                    das_level      = params.get('das_level')
+                    hybas_id       = params.get('hybas_id')
+
+                    # Jika user pilih DAS dari form Laravel, gunakan das_level sebagai auto_level
+                    if das_level and not auto_level:
+                        auto_level = int(das_level)
 
                     print(f"Parameters forwarded to main(): shapefile_path={shapefile_path}, auto_level={auto_level}, lang={lang}")
+                    print(f"DAS Info dari form: name={das_name}, area={das_area_km2} km², level={das_level}, hybas_id={hybas_id}")
 
                     main_weap_ml.main(
                         lon=longitude,
@@ -2253,7 +2548,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                         'RIVANA_Hasil_Complete.csv',
                         'RIVANA_Monthly_WaterBalance.csv',
                         'RIVANA_Prediksi_30Hari.csv',
-                        'GEE_Raw_Data.csv'
+                        'GEE_Raw_Data.csv',
+                        'RIVANA_WaterBalance_Indices.csv',
                     ],
                     'json': [
                         'RIVANA_WaterBalance_Validation.json',
@@ -2262,7 +2558,8 @@ def run_hidrologi_process(job_id, params, result_dir):
                         'RIVANA_Model_Validation_Report.json',
                         'GEE_Data_Metadata.json',
                         'RIVANA_TWI_Analysis.json',
-                        'RIVANA_Metadata_Peta.json'
+                        'RIVANA_Metadata_Peta.json',
+                        'RIVANA_Dam_Cost_Estimate.json',
                     ],
                     'html': [
                         'RIVANA_Peta_Aliran_Sungai.html'
@@ -2275,6 +2572,7 @@ def run_hidrologi_process(job_id, params, result_dir):
                 png_files = []
                 csv_files = []
                 json_files = []
+                html_files = []
 
                 for file_name in all_files:
                     file_path = os.path.join(result_dir, file_name)

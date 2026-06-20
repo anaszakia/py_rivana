@@ -3175,6 +3175,7 @@ class MLSupplyDemand:
         for i, sector in enumerate(sectors):
             df_hasil[f'supply_{sector}'] = predictions[:, i]
             df_hasil[f'defisit_{sector}'] = (config.demand[sector] - predictions[:, i]).clip(0)
+            df_hasil[f'demand_{sector}'] = config.demand[sector]
 
         df_hasil['total_demand'] = sum(config.demand.values())
         df_hasil['total_supply'] = predictions.sum(axis=1)
@@ -5239,15 +5240,15 @@ def create_comprehensive_report(df_hasil, df_prediksi, morphology_data=None, mon
 
     # Gunakan save_dir jika ada, otherwise simpan di current directory
     if save_dir:
-        df_hasil.to_csv(os.path.join(save_dir, 'RIVANA_Hasil_Simulasi.csv'), index=False)
+        df_hasil.to_csv(os.path.join(save_dir, 'RIVANA_Hasil_Complete.csv'), index=False)
         df_prediksi.to_csv(os.path.join(save_dir, 'RIVANA_Prediksi_30Hari.csv'), index=False)
     else:
-        df_hasil.to_csv('RIVANA_Hasil_Simulasi.csv', index=False)
+        df_hasil.to_csv('RIVANA_Hasil_Complete.csv', index=False)
         df_prediksi.to_csv('RIVANA_Prediksi_30Hari.csv', index=False)
 
     print("\n✅ File saved:")
     print("   📊 RIVANA_Dashboard.png - Visual dashboard")
-    print("   📄 RIVANA_Hasil_Simulasi.csv - Complete simulation data")
+    print("   📄 RIVANA_Hasil_Complete.csv - Complete simulation data")
     print("   📄 RIVANA_Prediksi_30Hari.csv - Forecast 30 hari")
 
     # Summary statistik
@@ -5979,8 +5980,8 @@ def create_morphology_ecology_report(df_hasil, morphology_data, monthly_wb=None,
     # Store validation results if available
     if validation is not None:
         validation_clean = convert_numpy_types(validation)
-        # Now safe to dump
-        with open('RIVANA_WaterBalance_Validation.json', 'w') as f:
+        val_path = os.path.join(save_dir, 'RIVANA_WaterBalance_Validation.json') if save_dir else 'RIVANA_WaterBalance_Validation.json'
+        with open(val_path, 'w') as f:
             json.dump(validation_clean, f, indent=4)
     print("\n✅ File tambahan saved:")
     print("   📊 Morphology_Ecology_Dashboard.png - Morphology-ecology dashboard")
@@ -6895,6 +6896,7 @@ def main(lon=None, lat=None, start=None, end=None, output_dir=None, lang='en',
     ml_ecology = MLAquaticEcology()
     df_hasil = ml_ecology.train(df_hasil)
     df_hasil = ml_ecology.predict(df_hasil)
+    df_hasil['slope_degree'] = morphology_data['slope_mean']
 
     # Water Balance Analysis
     print_section("MODUL WATER BALANCE ANALYSIS", "⚖️")
