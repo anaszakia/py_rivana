@@ -1555,7 +1555,7 @@ def create_river_network_map(das, lon, lat, output_dir='.'):
         try:
             # Coba gunakan selenium untuk screenshot
             try:
-                from selenium import webdriver
+                raise ImportError("selenium disabled")  # from selenium import webdriver
                 from selenium.webdriver.chrome.options import Options
                 
                 chrome_options = Options()
