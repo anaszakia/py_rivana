@@ -221,7 +221,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
             },
             'ndvi': {
                 'name': 'MODIS NDVI',
-                'source': 'MODIS/006/MOD13Q1',
+                'source': 'MODIS/061/MOD13Q1',
                 'description': 'Normalized Difference Vegetation Index (16-day composite)',
                 'unit': 'dimensionless (-1 to 1)',
                 'resolution': '250 m',
@@ -1033,7 +1033,7 @@ def fetch_gee_data(das, start_date, end_date):
     
     # 3. MODIS - NDVI (16-day composite, interpolate)
     print("3️⃣ Fetching MODIS NDVI data...")
-    modis = ee.ImageCollection('MODIS/006/MOD13Q1') \
+    modis = ee.ImageCollection('MODIS/061/MOD13Q1') \
         .filterDate(ee_start.advance(-16, 'day'), ee_end) \
         .filterBounds(buffer) \
         .select('NDVI')
@@ -1167,7 +1167,7 @@ def fetch_morphology_data(das, start_date, end_date):
     aspect = ee.Terrain.aspect(dem)
 
     # Land Cover - MODIS
-    land_cover = ee.ImageCollection('MODIS/006/MCD12Q1') \
+    land_cover = ee.ImageCollection('MODIS/061/MCD12Q1') \
         .filterDate(start_date, end_date) \
         .select('LC_Type1') \
         .mode() \
