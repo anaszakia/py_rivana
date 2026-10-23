@@ -213,7 +213,7 @@ def save_gee_raw_data_with_metadata(df, lon, lat, morphology_data, output_dir=No
             },
             'soil_moisture': {
                 'name': 'SMAP Soil Moisture',
-                'source': 'NASA_USDA/HSL/SMAP10KM_soil_moisture',
+                'source': 'NASA/SMAP/SPL3SMP_E/006',
                 'description': 'Surface soil moisture (0-5cm depth)',
                 'unit': 'volumetric fraction',
                 'resolution': '10 km',
@@ -1038,12 +1038,15 @@ def fetch_gee_data(das, start_date, end_date):
         .filterBounds(buffer) \
         .select('NDVI')
     
-    # 4. SMAP - Humidity Soil (daily)
+    # 4. SMAP - Humidity Soil (daily - L3 Radiometer Enhanced 9km V006)
     print("4️⃣ Fetching SMAP soil moisture data...")
-    smap = ee.ImageCollection('NASA_USDA/HSL/SMAP10KM_soil_moisture') \
+    smap = ee.ImageCollection('NASA/SMAP/SPL3SMP_E/006') \
         .filterDate(ee_start, ee_end) \
         .filterBounds(buffer) \
-        .select('ssm')
+        .map(lambda img: img.addBands(
+            img.select(['soil_moisture_am', 'soil_moisture_pm']).reduce(ee.Reducer.mean()).rename('soil_moisture')
+        )) \
+        .select('soil_moisture')
     
     # ⚡ SINGLE getInfo() call untuk semua data - SUPER CEPAT!
     print("⚡ Processing all data in ONE batch request...")
@@ -1361,26 +1364,36 @@ def create_river_network_map(das, lon, lat, output_dir='.'):
         else:
             zoom = 13
 
+        # Basemap Default: Esri World Imagery (Satellite)
         m = folium.Map(
             location=[center_lat, center_lon],
             zoom_start=zoom,
-            tiles='OpenStreetMap',
+            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri, Maxar, Earthstar Geographics, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+            name='🛰️ Satelit Resolusi Tinggi (Esri)',
             control_scale=True
         )
-        
-        # Add alternative basemaps dengan attribution yang benar
+
         folium.TileLayer(
-            tiles='https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.jpg',
-            attr='Map tiles by Stadia Maps, under CC BY 4.0. Data by OpenStreetMap, under ODbL.',
-            name='Terrain',
+            tiles='https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+            attr='Esri, DeLorme, NAVTEQ',
+            name='🏷️ Label Kota & Batas Administrasi',
+            overlay=True,
+            control=True,
+            show=True
+        ).add_to(m)
+
+        folium.TileLayer(
+            tiles='OpenStreetMap',
+            name='🗺️ OpenStreetMap Standard',
             overlay=False,
             control=True
         ).add_to(m)
-        
+
         folium.TileLayer(
-            tiles='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            tiles='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
             attr='© OpenStreetMap contributors © CARTO',
-            name='CartoDB Light',
+            name='🧭 Carto Voyager (Topografi Bersih)',
             overlay=False,
             control=True
         ).add_to(m)
@@ -1435,98 +1448,135 @@ def create_river_network_map(das, lon, lat, output_dir='.'):
         
         # ========== 4. TAMBAHKAN MARKER & INFORMASI ==========
         
-        # Marker lokasi analisis
-        # folium.Marker(
-        #     [lat, lon],
-        #     popup=folium.Popup(
-        #         f"<b>📍 Titik Analisis</b><br>"
-        #         f"Koordinat: {lat:.4f}°N, {lon:.4f}°E<br>"
-        #         f"DAS: {das.name}<br>"
-        #         f"Luas: {das.area_km2:.1f} km²",
-        #         max_width=300
-        #     ),
-        #     tooltip="Lokasi Analisis",
-        #     icon=folium.Icon(color='red', icon='map-pin', prefix='fa')
-        # ).add_to(m)
+        # Marker Lokasi Analisis / Titik Outlet Proyek
+        folium.Marker(
+            [lat, lon],
+            popup=folium.Popup(
+                f"""
+                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 220px;'>
+                    <div style='font-weight: 800; color: #0284c7; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;'>
+                        📍 TITIK OUTLET / ANALISIS
+                    </div>
+                    <div><b>Koordinat:</b> {lat:.5f}°, {lon:.5f}°</div>
+                    <div><b>DAS:</b> {das.name}</div>
+                    <div><b>Luas Wilayah:</b> {das.area_km2:.1f} km²</div>
+                </div>
+                """,
+                max_width=320
+            ),
+            tooltip="📍 Titik Analisis Hidrologi",
+            icon=folium.Icon(color='red', icon='info-sign')
+        ).add_to(m)
         
-        # ✅ Tampilkan polygon batas DAS (bukan lingkaran buffer lagi)
+        # ✅ Tampilkan polygon batas DAS beraksen Cyan/Teal Modern
         try:
             geom_info = das.geometry.getInfo()
             geom_type = geom_info['type']
             geom_coords = geom_info['coordinates']
 
             def swap_lonlat(coords):
-                """GEE pakai [lon,lat], folium pakai [lat,lon]"""
                 if isinstance(coords[0], (int, float)):
                     return [coords[1], coords[0]]
                 return [swap_lonlat(c) for c in coords]
 
+            das_popup_html = f"""
+                <div style='font-family: sans-serif; font-size: 12px; line-height: 1.5; min-width: 200px;'>
+                    <div style='font-weight: 800; color: #0f766e; border-bottom: 2px solid #ccfbf1; padding-bottom: 4px; margin-bottom: 6px;'>
+                        🛡️ BATAS TANGKAPAN AIR (DAS)
+                    </div>
+                    <div><b>Nama DAS:</b> {das.name}</div>
+                    <div><b>Luas Area:</b> {das.area_km2:.2f} km²</div>
+                    <div style='margin-top: 4px; font-size: 11px; color: #64748b;'>Sumber: HydroSHEDS Level 8 GEE</div>
+                </div>
+            """
+
             if geom_type == 'Polygon':
                 folium.Polygon(
                     locations=swap_lonlat(geom_coords[0]),
-                    color='red', weight=2,
-                    fill=True, fillColor='red', fillOpacity=0.15,
-                    popup=folium.Popup(
-                        f"<b>🗺️ Batas DAS</b><br>"
-                        f"Nama : {das.name}<br>"
-                        f"Luas : {das.area_km2:.1f} km²",
-                        max_width=300
-                    ),
-                    tooltip=f"Batas DAS ({das.area_km2:.1f} km²)"
+                    color='#0284c7', weight=3,
+                    fill=True, fillColor='#38bdf8', fillOpacity=0.22,
+                    popup=folium.Popup(das_popup_html, max_width=320),
+                    tooltip=f"🛡️ Deliniasi Batas DAS: {das.name} ({das.area_km2:.1f} km²)"
                 ).add_to(m)
             elif geom_type == 'MultiPolygon':
                 for poly in geom_coords:
                     folium.Polygon(
                         locations=swap_lonlat(poly[0]),
-                        color='red', weight=2,
-                        fill=True, fillColor='red', fillOpacity=0.15,
-                        tooltip=f"Batas DAS ({das.area_km2:.1f} km²)"
+                        color='#0284c7', weight=3,
+                        fill=True, fillColor='#38bdf8', fillOpacity=0.22,
+                        popup=folium.Popup(das_popup_html, max_width=320),
+                        tooltip=f"🛡️ Deliniasi Batas DAS: {das.name} ({das.area_km2:.1f} km²)"
                     ).add_to(m)
         except Exception as poly_err:
             print(f"   ⚠️  Tidak bisa menampilkan polygon DAS: {poly_err}")
         
-        # ========== 5. TAMBAHKAN LEGEND & CONTROLS ==========
+        # ========== 5. TAMBAHKAN LEGEND & CONTROLS MODERN GLASSMORPHISM ==========
         
         # Layer control
         folium.LayerControl(position='topright', collapsed=False).add_to(m)
         
-        # Add legend HTML
+        # Add Modern Responsive Legend HTML
         legend_html = '''
         <div style="position: fixed; 
-                    bottom: 50px; left: 50px; width: 280px; height: auto; 
-                    background-color: white; border:2px solid grey; z-index:9999; 
-                    font-size:12px; padding: 10px; border-radius: 5px;">
-        <h4 style="margin-top:0; margin-bottom:10px; text-align:center;">
-            🌊 LEGENDA PETA SUNGAI
-        </h4>
-        <p style="margin:5px 0;"><b>📍 Marker Merah:</b> Titik Analisis</p>
-        <p style="margin:5px 0;"><b>🔵 Garis Biru Tua:</b> Aliran Sungai Utama</p>
-        <p style="margin:5px 0;"><b>🔷 Biru Muda:</b> Anak Sungai</p>
-        <p style="margin:5px 0;"><b>💧 Intensitas Warna:</b> Akumulasi Aliran</p>
-        <hr style="margin:8px 0;">
-        <p style="margin:5px 0; font-size:10px;">
-            <i>Data: Google Earth Engine<br>
-            HydroSHEDS & JRC Global Surface Water</i>
-        </p>
+                    bottom: 24px; left: 24px; width: 280px; max-width: calc(100vw - 48px);
+                    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
+                    color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.15);
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+                    font-family: system-ui, -apple-system, sans-serif;
+                    font-size: 11px; padding: 14px; border-radius: 12px; z-index: 9999;">
+            <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🌊 Legenda Jaringan Sungai</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0;">
+                <span style="color: #ef4444; font-size: 13px;">📍</span>
+                <span><b>Titik Analisis:</b> Lokasi Pengamatan</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0;">
+                <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #0284c7; background: rgba(56, 189, 248, 0.3); border-radius: 3px;"></span>
+                <span><b>Batas DAS:</b> Area Tangkapan Air</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0;">
+                <span style="display: inline-block; width: 14px; height: 3px; background: #001a66; border-radius: 2px;"></span>
+                <span><b>Aliran Sungai Utama:</b> Akumulasi Tinggi</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0;">
+                <span style="display: inline-block; width: 14px; height: 3px; background: #6699ff; border-radius: 2px;"></span>
+                <span><b>Anak Sungai:</b> Saluran & Orde Hulu</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0;">
+                <span style="display: inline-block; width: 14px; height: 14px; background: #4575b4; border-radius: 3px;"></span>
+                <span><b>Badan Air Permanen (JRC)</b></span>
+            </div>
+            
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 10px; color: #94a3b8; line-height: 1.4;">
+                <i>Data: Google Earth Engine · HydroSHEDS 15s · JRC Surface Water 30m</i>
+            </div>
         </div>
         '''
         m.get_root().html.add_child(folium.Element(legend_html))
         
-        # Add title
+        # Add Modern Header Title HTML
         title_html = f'''
         <div style="position: fixed; 
-                    top: 10px; left: 50%; transform: translateX(-50%);
-                    z-index:9999; background-color: rgba(255,255,255,0.9);
-                    border:2px solid #0066cc; border-radius: 8px;
-                    padding: 10px 20px; box-shadow: 2px 2px 6px rgba(0,0,0,0.3);">
-            <h3 style="margin:0; color:#0066cc; text-align:center;">
-                🗺️ PETA DAS: {das.name}
-            </h3>
-            <p style="margin:5px 0; text-align:center; font-size:12px;">
-                Luas: {das.area_km2:.1f} km² | Centroid: {center_lat:.4f}°N, {center_lon:.4f}°E
-            </p>
+                    top: 16px; left: 50%; transform: translateX(-50%);
+                    z-index: 9999; background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(8px);
+                    border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 12px;
+                    padding: 8px 18px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+                    font-family: system-ui, -apple-system, sans-serif;
+                    text-align: center; max-width: 90vw;">
+            <div style="color: #0369a1; font-weight: 800; font-size: 13px; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span>🗺️</span> <span>PETA DELINIASI DAS & JARINGAN SUNGAI</span>
+            </div>
+            <div style="color: #0f172a; font-weight: 700; font-size: 12px; margin-top: 2px;">
+                {das.name}
+            </div>
+            <div style="color: #64748b; font-size: 11px; margin-top: 1px;">
+                Luas Tangkapan: <b>{das.area_km2:.1f} km²</b> | Outlet: <b>{lat:.4f}°, {lon:.4f}°</b>
+            </div>
         </div>
-        '''.format(lat, lon)
+        '''
         m.get_root().html.add_child(folium.Element(title_html))
         
         # ========== 6. SIMPAN PETA ==========
