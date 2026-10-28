@@ -1061,8 +1061,12 @@ def fetch_gee_data(das, start_date, end_date):
                 maxPixels=1e9
             ).values().get(0)
             
-            # Apply scaling
-            val = ee.Number(val).multiply(scale_factor).add(offset)
+            # Apply scaling safely (handle null/missing pixels gracefully)
+            val = ee.Algorithms.If(
+                ee.Algorithms.IsEqual(val, None),
+                None,
+                ee.Number(val).multiply(scale_factor).add(offset)
+            )
             
             return ee.Feature(None, {
                 'date': img.date().format('YYYY-MM-dd'),
